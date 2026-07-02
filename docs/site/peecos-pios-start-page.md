@@ -1,6 +1,6 @@
 # PIOS Core Start
 
-Status: source draft for future `https://peecos.org/pios/start`
+Status: source text for `https://peecos.org/pios/start`
 
 This page is designed for an owner to give to their own AI agent.
 
@@ -29,8 +29,12 @@ Do you want Core Managed AWS or Core Self-Hosted VM?
 
 ### Option A: Core Managed AWS
 
-Use this if the owner wants an AWS-native Core with S3, KMS, DynamoDB,
-CloudTrail, backup/DR, and CDK/CloudFormation deployment.
+Use this if the owner wants to deploy an AWS-native Core into the owner's own
+AWS environment using templates, manifests, and gated runbooks.
+
+This is a template/self-setup path. It is not a hosted peecos account service.
+A fully hosted account-and-use product is outside the open peecos framework
+release and may be offered separately by a service provider.
 
 Start from:
 
@@ -72,15 +76,14 @@ Current status:
 
 - local QEMU image path has proof artifacts;
 - release package extraction and boot proof passed;
-- local development signing proof passed;
 - first production release-key setup passed;
-- a signed v0.1.0-rc1 release candidate exists locally, but no public release
-  has been published yet;
+- a signed v0.1.0-rc1 prerelease is published at
+  `https://github.com/peecos/pios-core-self-hosted/releases/tag/v0.1.0-rc1`;
 - provider-specific imports are not yet marked supported;
 - Google Cloud has an experimental proof, not a supported production path;
 - Azure needs a fixed-VHD proof path;
-- AWS owners should use Core Managed AWS unless they have a specific reason to
-  request a separate self-hosted EC2 proof.
+- AWS owners should use the AWS template setup path unless they have a specific
+  reason to request a separate self-hosted EC2 proof.
 
 ## Choose One Adoption Track
 
@@ -164,7 +167,7 @@ Do not:
 - migrate guarded data;
 - delete existing sources;
 - treat derived projections as source of truth;
-- treat a local proof artifact as a public production release.
+- treat an unpublished local proof artifact as a public production release.
 
 ## Expected Outputs
 
@@ -212,12 +215,21 @@ Track 2 first transition succeeds when:
 - retrieval proof passes;
 - broad migration remains blocked.
 
-## Current References
+## Documentation Boundary
 
-Use these source documents until this page is published:
+peecos.org is the public orientation layer. It should explain what PIOS is, who
+it is for, how to start, and where the approval gates are.
+
+Full technical documentation, release verification instructions, runbooks,
+proof records, and master-level specifications belong in the peecos GitHub
+repositories.
+
+Current references:
 
 ```text
 docs/install/owner-agent-handoff.md
+https://github.com/peecos/
+https://github.com/peecos/pios-core-self-hosted
 docs/runbooks/public-repository-and-release-layout.md
 docs/runbooks/pios-2-public-productization-target.md
 docs/decisions/production-release-key-custody.md

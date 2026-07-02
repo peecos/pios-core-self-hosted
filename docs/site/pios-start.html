@@ -110,7 +110,7 @@
 <body>
 <main>
   <header>
-    <div class="status">Source draft for future /pios/start</div>
+    <div class="status">Source copy for /pios/start</div>
     <h1>PIOS Core Start</h1>
     <p class="summary">PIOS Core is personal information infrastructure for one owner. It preserves source material, records canonical events, maintains structured knowledge, and lets agents retrieve context without taking ownership away from the person.</p>
   </header>
@@ -124,7 +124,7 @@
     <div class="grid">
       <article class="card">
         <h3>Core Managed AWS</h3>
-        <p>Use this when the owner wants an AWS-native Core with S3, KMS, DynamoDB, CloudTrail, backup/DR, and CDK/CloudFormation deployment.</p>
+        <p>Use this when the owner wants to deploy an AWS-native Core into the owner's own AWS environment using templates, manifests, and gated runbooks. This is not a hosted peecos account service.</p>
         <pre><code>docs/runbooks/new-owner-provisioning-template.md
 docs/runbooks/gate-sequence.md
 docs/runbooks/aws-account-preflight.md</code></pre>
@@ -180,11 +180,15 @@ docs/install/provider-readiness-matrix.md</code></pre>
       <li>Local QEMU image path has proof artifacts.</li>
       <li>Release package extraction and boot proof passed.</li>
       <li>Production release-key setup passed.</li>
-      <li>A signed v0.1.0-rc1 release candidate exists locally.</li>
-      <li>No public release has been published yet.</li>
+      <li>A signed v0.1.0-rc1 prerelease is published in the peecos GitHub organization.</li>
       <li>Google Cloud is experimental, not supported. Azure and external VM providers are unverified.</li>
-      <li>AWS owners should use Core Managed AWS unless they specifically need a separate self-hosted EC2 proof.</li>
+      <li>AWS owners should use the AWS template setup path unless they specifically need a separate self-hosted EC2 proof.</li>
     </ul>
+  </section>
+
+  <section>
+    <h2>Documentation Boundary</h2>
+    <p>peecos.org is the public orientation layer. Full technical documentation, release verification instructions, runbooks, proof records, and master-level specifications belong in the peecos GitHub repositories.</p>
   </section>
 
   <section>

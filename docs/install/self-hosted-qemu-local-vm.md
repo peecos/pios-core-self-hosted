@@ -1,6 +1,6 @@
 # PIOS Core Self-Hosted QEMU Local VM
 
-Status: release-candidate install documentation; not yet published public release
+Status: release-candidate install documentation for the signed public prerelease
 
 This guide describes the local QEMU package shape proven in the repository. It
 is written for an owner or owner-authorized agent that wants to inspect and boot

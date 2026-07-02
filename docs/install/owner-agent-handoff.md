@@ -1,6 +1,6 @@
 # PIOS Core Owner-Agent Handoff
 
-Status: draft handoff page; not yet published at peecos.org
+Status: source handoff text for peecos.org and GitHub install documentation
 
 This page is written for an owner to give to their own AI agent.
 
@@ -28,8 +28,12 @@ B. Core Self-Hosted VM
 
 ### A. Core Managed AWS
 
-Use this path if the owner wants an AWS-native Core with S3, KMS, DynamoDB,
-CloudTrail, backup/DR, and CDK/CloudFormation deployment.
+Use this path if the owner wants to deploy an AWS-native Core into the owner's
+own AWS environment using templates, manifests, and gated runbooks.
+
+This is a template/self-setup path. It is not a hosted peecos account service.
+A fully hosted account-and-use product is outside the open peecos framework
+release and may be offered separately by a service provider.
 
 Start with:
 
@@ -60,8 +64,8 @@ docs/runbooks/local-machine-vm-setup-validation-plan.md
 docs/runbooks/self-hosted-golden-vm-image-plan.md
 ```
 
-The current QEMU package path is a proven local proof, not a public production
-release.
+The current QEMU package path is available as a signed public prerelease. It is
+a release-candidate setup path, not a claim that every VM provider is supported.
 
 ## Choose An Adoption Track
 
@@ -189,7 +193,7 @@ Do not:
 - treat derived projections as source of truth;
 - reuse another owner's manifest, account id, bucket name, key, or signing
   material;
-- treat a local proof package as a public production release.
+- treat an unpublished local proof package as a public production release.
 
 ## Success Criteria
 
@@ -224,21 +228,22 @@ For Track 2 first migration:
 
 ## Current Public-Release Boundary
 
-The QEMU self-hosted path currently has local proofs for:
+The QEMU self-hosted path currently has:
 
 - repeatable QEMU boot;
 - image candidate;
 - standalone qcow2 artifact;
 - release package extraction and boot;
-- local development signature verification;
-- public-facing manifest shape.
+- production signature verification;
+- public-facing manifest shape;
+- signed public prerelease `v0.1.0-rc1` in
+  `https://github.com/peecos/pios-core-self-hosted`.
 
-Remaining before public production release:
+Remaining before supported production release:
 
-- production release-key creation/publication;
-- public repository/release layout;
 - provider-specific import proofs;
-- final peecos.org page.
+- broader installer hardening;
+- supported-path documentation for each validated provider.
 
 Release-key setup is governed by:
 
