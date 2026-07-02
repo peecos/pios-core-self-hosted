@@ -39,9 +39,9 @@ release and may be offered separately by a service provider.
 Start from:
 
 ```text
-docs/runbooks/new-owner-provisioning-template.md
-docs/runbooks/aws-template-gate-sequence.md
-docs/runbooks/aws-account-preflight.md
+https://github.com/peecos/pios-core-aws-template/blob/main/docs/runbooks/new-owner-provisioning-template.md
+https://github.com/peecos/pios-core-aws-template/blob/main/docs/runbooks/aws-template-gate-sequence.md
+https://github.com/peecos/pios-core-aws-template/blob/main/docs/runbooks/aws-account-preflight.md
 https://github.com/peecos/pios-core-aws-template
 ```
 
@@ -102,7 +102,7 @@ information system.
 Start from:
 
 ```text
-docs/runbooks/track-1-new-owner-gradual-start.md
+https://github.com/peecos/pios-core-aws-template/blob/main/docs/runbooks/track-1-new-owner-gradual-start.md
 ```
 
 Keep first intake narrow and owner-approved.
@@ -115,7 +115,7 @@ dashboards, logs, data takeouts, or other personal information infrastructure.
 Start from:
 
 ```text
-docs/runbooks/track-2-existing-system-transition-template.md
+https://github.com/peecos/pios-core-aws-template/blob/main/docs/runbooks/track-2-existing-system-transition-template.md
 ```
 
 Do not migrate by folder glob. First create a system map, classify source
@@ -232,7 +232,6 @@ docs/install/owner-agent-handoff.md
 https://github.com/peecos/
 https://github.com/peecos/pios-core-self-hosted
 docs/runbooks/public-repository-and-release-layout.md
-docs/runbooks/pios-2-public-productization-target.md
 docs/decisions/production-release-key-custody.md
 docs/runbooks/production-release-key-setup-checklist.md
 docs/runbooks/production-release-signing-ceremony.md

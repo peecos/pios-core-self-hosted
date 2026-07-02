@@ -1,6 +1,6 @@
 # PIOS Core Release Verification
 
-Status: draft public verification guide; production public key available in repo; no public release published
+Status: public verification guide; production public key available in repo and on peecos.org
 
 This guide explains how an owner or owner-authorized agent should verify a
 PIOS/Core release package before booting or importing it.
@@ -44,7 +44,7 @@ Linux: sha256sum -c SHA256SUMS
 
 ## Verification Order
 
-1. Verify the release-signing public key came from an official peecos source.
+1. Verify the release-signing public key came from the canonical peecos source.
 2. Verify `SHA256SUMS.sig` against `SHA256SUMS`.
 3. Verify package checksums with `SHA256SUMS`.
 4. Extract the package.
@@ -151,9 +151,16 @@ Stop if:
 ## Current Boundary
 
 The current repository contains a production public verification key and a
-signed local release-candidate proof. The release candidate is not published
-yet. The production key setup proof is recorded in:
+published signed prerelease.
+
+The canonical release-key fingerprint publication location is:
 
 ```text
-docs/runbooks/production-release-key-setup-proof-2026-07-03.md
+https://www.peecos.org/pios/docs
+```
+
+Expected production public key fingerprint:
+
+```text
+0c33f7ed09c2dcf37399cdca72096c076156689d9a636f37730a3ea139891d0f
 ```

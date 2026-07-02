@@ -30,22 +30,14 @@ documented custom-image import path based on raw disk images compressed as
 That makes Google Cloud a reasonable first cloud-provider proof candidate, but
 not automatically supported.
 
-The first owner-approved attempt is recorded in:
-
-```text
-docs/runbooks/google-cloud-import-proof-attempt-2026-07-02.md
-```
+The first owner-approved attempt is recorded in private operator evidence.
 
 That attempt proved archive upload, custom image creation, ARM64 VM boot, and
 cleanup. It failed before Core initialization because the imported image did not
 consume the Google Cloud metadata/user-data path; cloud-init reported
 `Datasource DataSourceNone`.
 
-The gVNIC follow-up attempt is recorded in:
-
-```text
-docs/runbooks/google-cloud-import-proof-gvnic-attempt-2026-07-02.md
-```
+The gVNIC follow-up attempt is recorded in private operator evidence.
 
 That attempt added a PIOS Google metadata first-boot adapter, explicit
 `GVNIC` image and VM flags, and a generic DHCP baseline. The VM booted and the
@@ -54,11 +46,7 @@ interface. Serial output showed the Google NIC as PCI device `[1ae0:0042]`, and
 local build inspection showed the generic Ubuntu arm64 image lacks the `gve`
 kernel module.
 
-The first successful proof is recorded in:
-
-```text
-docs/runbooks/google-cloud-import-proof-success-2026-07-02.md
-```
+The first successful proof is recorded in private operator evidence.
 
 That proof used a Google-compatible image variant with offline gVNIC driver
 package injection. The VM imported, booted, fetched the synthetic provisioning
@@ -111,11 +99,7 @@ It converts the standalone qcow2 proof image into the Google Cloud import
 shape, verifies that the archive contains only `disk.raw`, writes checksums,
 and records `cloud_calls: 0`.
 
-The first local artifact proof is recorded in:
-
-```text
-docs/runbooks/google-cloud-local-import-artifact-proof-2026-07-02.md
-```
+The first local artifact proof is recorded in private operator evidence.
 
 The guarded import proof runner is:
 

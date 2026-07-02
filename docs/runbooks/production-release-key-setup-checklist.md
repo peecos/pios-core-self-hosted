@@ -1,6 +1,6 @@
 # Production Release-Key Setup Checklist
 
-Status: passed for first key; production release not yet published
+Status: passed for first key; final production release not yet published
 
 This checklist defines the remaining work after choosing the first public
 release custody model.
@@ -54,20 +54,13 @@ acceptable production mechanism.
 ## Prepared First Mechanism
 
 The first setup plan has been prepared as an encrypted offline software-key
-path controlled by the peecos release maintainer:
-
-```text
-docs/runbooks/production-release-key-setup-preparation-2026-07-03.md
-```
+path controlled by the peecos release maintainer.
 
 That preparation made zero cloud calls and wrote no private key material. It is
 not a production-key setup proof.
 
-The setup proof passed on 2026-07-03:
-
-```text
-docs/runbooks/production-release-key-setup-proof-2026-07-03.md
-```
+The setup proof passed on 2026-07-03. Detailed proof evidence is retained in
+private operator records.
 
 ## Setup Steps
 

@@ -1,27 +1,19 @@
 # Production Release-Key Custody
 
-Status: decided for first public release; production key setup passed; no release published
+Status: decided for first public release; production key setup passed; first prerelease published
 Created: 2026-07-02
 Decided: 2026-07-02
 
 This decision record defines the release-key custody model for signing the
 self-hosted QEMU image as a public peecos release.
 
-The local signing mechanics proof is complete:
+The local signing mechanics proof is complete. That proof used a local
+development Ed25519 key under ignored `image-artifacts/`. It proves the signing
+flow works, but it is not production release-key custody.
 
-```text
-docs/runbooks/self-hosted-qemu-release-signing-proof-2026-07-02.md
-```
-
-That proof used a local development Ed25519 key under ignored
-`image-artifacts/`. It proves the signing flow works, but it is not production
-release-key custody.
-
-The first production release-key setup proof is complete:
-
-```text
-docs/runbooks/production-release-key-setup-proof-2026-07-03.md
-```
+The first production release-key setup proof is complete. Detailed setup
+evidence is retained in private operator records; the public repository contains
+only the public verification key, fingerprint, and verification instructions.
 
 ## Decision
 
@@ -128,16 +120,26 @@ A release is not public until all are true:
 - public verification key and commands are documented;
 - release notes include boundaries and unsupported provider statuses.
 
+## Canonical Public Key Location
+
+The canonical release-key fingerprint publication location is:
+
+```text
+https://www.peecos.org/pios/docs
+```
+
+The public repository also carries the public verification key and fingerprint
+for convenience.
+
 ## Open Items
 
-- decide whether peecos.org or GitHub is canonical for public-key publication.
-- complete the first production signing ceremony from a clean source tag.
+- continue release signing from clean source tags.
+- add key-compromise and revocation contact instructions.
 
 ## Related Runbooks
 
 ```text
 docs/runbooks/production-release-signing-ceremony.md
 docs/runbooks/production-release-key-setup-checklist.md
-docs/runbooks/production-release-key-setup-proof-2026-07-03.md
 docs/install/release-verification.md
 ```

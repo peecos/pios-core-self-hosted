@@ -17,17 +17,9 @@ Production key setup gate:
 docs/runbooks/production-release-key-setup-checklist.md
 ```
 
-Prepared setup plan:
-
-```text
-docs/runbooks/production-release-key-setup-preparation-2026-07-03.md
-```
-
-Production key setup proof:
-
-```text
-docs/runbooks/production-release-key-setup-proof-2026-07-03.md
-```
+The production key setup plan and proof are retained in private operator
+records. Public releases carry only the public verification key, fingerprint,
+checksums, signatures, release notes, and verification instructions.
 
 ## Purpose
 

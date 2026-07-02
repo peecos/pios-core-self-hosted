@@ -76,11 +76,9 @@ Proof plan:
 
 ```text
 docs/runbooks/google-cloud-import-proof-plan.md
-docs/runbooks/google-cloud-local-import-artifact-proof-2026-07-02.md
-docs/runbooks/google-cloud-import-proof-attempt-2026-07-02.md
-docs/runbooks/google-cloud-import-proof-gvnic-attempt-2026-07-02.md
-docs/runbooks/google-cloud-import-proof-success-2026-07-02.md
 ```
+
+Detailed Google Cloud proof evidence is retained in private operator records.
 
 Completed:
 
@@ -130,13 +128,9 @@ Do not spend validation effort on EC2 VM import unless a future owner has a
 specific reason to run the self-hosted image on AWS instead of using Core
 Managed AWS.
 
-Path plan:
-
-```text
-docs/runbooks/aws-self-hosted-image-path-plan.md
-```
-
-The plan is retained as a reference for the out-of-scope decision.
+The self-hosted AWS path is retained as an out-of-scope decision. Use the AWS
+template repository for AWS owners unless a future owner has a specific reason
+to validate self-hosted EC2.
 
 ### External VM Providers
 

@@ -104,11 +104,8 @@ Fail the validation if:
 
 ## Current Boundary
 
-Proof-level local-machine setup validation has passed and is recorded in:
-
-```text
-docs/runbooks/local-machine-vm-setup-validation-proof-2026-07-02.md
-```
+Proof-level local-machine setup validation has passed. Detailed proof evidence
+is retained in private operator records.
 
 The remaining gap is owner-facing usability: a polished wrapper or local VM
 frontend flow, production-signed package verification, hardened keys, and local

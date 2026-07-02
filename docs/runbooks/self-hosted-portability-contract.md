@@ -45,13 +45,9 @@ self-hosted contract:
 
 ## First VM/Local Proof
 
-The first self-hosted proof was intentionally narrow and used the refreshed
-current pilot bundle recorded in
-`docs/runbooks/current-pilot-core-bundle-refresh-2026-06-29.md`.
-
-Completed proof:
-
-`docs/runbooks/self-hosted-local-validation-proof-2026-07-01.md`
+The first self-hosted proof was intentionally narrow and used a refreshed
+operator-held Core Bundle. Detailed proof evidence is retained in private
+operator records.
 
 The proof:
 
@@ -73,18 +69,9 @@ The next self-hosted target is a data-empty golden VM image: a Core Template
 that contains code, schemas, services, setup logic, and validation tools, but no
 owner data or hydrated Core Bundle.
 
-The first-boot initializer proof has passed:
-
-`docs/runbooks/self-hosted-empty-init-proof-2026-07-01.md`
-
-The data-empty image-root scaffold proof has passed:
-
-`docs/runbooks/self-hosted-image-root-scaffold-proof-2026-07-01.md`
-
-The VM packaging scaffold proof has passed, with boot blocked pending VM builder
-availability:
-
-`docs/runbooks/self-hosted-vm-packaging-scaffold-proof-2026-07-01.md`
+The first-boot initializer, data-empty image-root scaffold, and VM packaging
+scaffold proofs have passed. Detailed proof evidence is retained in private
+operator records.
 
 Plan:
 

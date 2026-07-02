@@ -38,9 +38,9 @@ release and may be offered separately by a service provider.
 Start with:
 
 ```text
-docs/runbooks/new-owner-provisioning-template.md
-docs/runbooks/aws-template-gate-sequence.md
-docs/runbooks/aws-account-preflight.md
+https://github.com/peecos/pios-core-aws-template/blob/main/docs/runbooks/new-owner-provisioning-template.md
+https://github.com/peecos/pios-core-aws-template/blob/main/docs/runbooks/aws-template-gate-sequence.md
+https://github.com/peecos/pios-core-aws-template/blob/main/docs/runbooks/aws-account-preflight.md
 https://github.com/peecos/pios-core-aws-template
 ```
 
@@ -85,7 +85,7 @@ information system.
 Start with:
 
 ```text
-docs/runbooks/track-1-new-owner-gradual-start.md
+https://github.com/peecos/pios-core-aws-template/blob/main/docs/runbooks/track-1-new-owner-gradual-start.md
 ```
 
 The first real owner intake must remain narrow, owner-approved, and
@@ -100,7 +100,7 @@ targets.
 Start with:
 
 ```text
-docs/runbooks/track-2-existing-system-transition-template.md
+https://github.com/peecos/pios-core-aws-template/blob/main/docs/runbooks/track-2-existing-system-transition-template.md
 ```
 
 Do not migrate by folder glob. Build a system map first, classify source

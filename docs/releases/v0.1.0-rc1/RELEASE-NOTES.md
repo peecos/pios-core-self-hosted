@@ -1,6 +1,6 @@
 # PIOS Core Self-Hosted QEMU arm64 v0.1.0-rc1
 
-Status: signed release candidate; not published
+Status: published prerelease
 
 ## Summary
 
@@ -66,6 +66,6 @@ candidate because the AWS-native owner path is Core Managed AWS.
 - This is not a backup.
 - This does not authorize connector sync, bundle hydration, broad migration, or
   source decommissioning.
-- The release candidate is not published until the public repository/site
-  publication gate passes.
-
+- This is a prerelease, not a supported production release.
+- Final `v0.1.0` remains gated on repeatability, cost/security review,
+  documentation review, and publication-gate closure.

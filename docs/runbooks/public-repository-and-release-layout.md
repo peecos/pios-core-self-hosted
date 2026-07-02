@@ -1,16 +1,13 @@
 # Public Repository And Release Layout
 
-Status: draft layout; public split preview passed; not yet published under peecos
+Status: public layout reference; repository published under peecos
 Created: 2026-07-02
 
 This document defines the target public layout for PIOS/Core implementation
 artifacts and documentation.
 
-It supports the broader target in:
-
-```text
-docs/runbooks/pios-2-public-productization-target.md
-```
+It supports the public peecos target of publishing owner-controlled setup paths
+without private pilot context.
 
 ## Goals
 
@@ -194,11 +191,9 @@ Still open:
 - Google Cloud repeatability and non-Google provider proof records;
 - final public release publication process.
 
-Current release-candidate proof:
-
-```text
-docs/runbooks/self-hosted-qemu-v0.1.0-rc1-release-candidate-proof-2026-07-03.md
-```
+Current release-candidate proof evidence is retained in private operator
+records. Public releases carry the release notes, manifest, checksums,
+signature, public key, and verification instructions.
 
 Current public split preview:
 
