@@ -58,7 +58,7 @@
     "scripts/validate_self_hosted_image_root.py",
     "scripts/validate_self_hosted_qemu_release_package.py"
   ],
-  "created_at": "2026-07-02T21:39:03.400972Z",
+  "created_at": "2026-07-02T21:40:16.809389Z",
   "hygiene": {
     "file_count": 51,
     "finding_count": 0,
