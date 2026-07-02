@@ -40,8 +40,9 @@ Start from:
 
 ```text
 docs/runbooks/new-owner-provisioning-template.md
-docs/runbooks/gate-sequence.md
+docs/runbooks/aws-template-gate-sequence.md
 docs/runbooks/aws-account-preflight.md
+https://github.com/peecos/pios-core-aws-template
 ```
 
 Do not deploy until the owner has approved:

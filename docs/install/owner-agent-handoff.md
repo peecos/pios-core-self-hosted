@@ -39,8 +39,9 @@ Start with:
 
 ```text
 docs/runbooks/new-owner-provisioning-template.md
-docs/runbooks/gate-sequence.md
+docs/runbooks/aws-template-gate-sequence.md
 docs/runbooks/aws-account-preflight.md
+https://github.com/peecos/pios-core-aws-template
 ```
 
 Do not create AWS resources until the owner has approved the account, region,
