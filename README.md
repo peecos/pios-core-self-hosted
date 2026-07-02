@@ -22,3 +22,16 @@ Boundaries:
 - no private key material is included;
 - provider support is limited to what the readiness matrix explicitly states;
 - AWS owners should normally use `https://github.com/peecos/pios-core-aws-template`.
+
+## License and Attribution
+
+Code, schemas, scripts, release tooling, and install documentation in this
+repository are licensed under the Apache License 2.0.
+
+Copyright (c) 2026 Valto Loikkanen / peecos.
+
+The broader PIOS 2.0 framework documentation is published separately under
+CC BY 4.0 in `https://github.com/peecos/pios`.
+
+The names `peecos`, `PIOS`, `PIOS Core`, `Cotton`, and associated logos or
+marks are not licensed under Apache-2.0. See `TRADEMARKS.md`.
