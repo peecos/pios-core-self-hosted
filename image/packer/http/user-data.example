@@ -1,0 +1,32 @@
+#cloud-config
+#
+# Copy this file to a local build-only http directory as `user-data`, then
+# replace the placeholder password hash before running Packer.
+#
+# This seed is for the VM build process only. Do not publish a golden image
+# that still contains this temporary builder account, a known password, or
+# build-time sudoers configuration.
+autoinstall:
+  version: 1
+  identity:
+    hostname: pios-core-self-hosted
+    username: piosbuilder
+    # Replace with a local build-only hash, for example from:
+    #   mkpasswd --method=SHA-512
+    # or:
+    #   openssl passwd -6
+    password: "$6$REPLACE_WITH_LOCAL_BUILD_ONLY_HASH"
+  ssh:
+    install-server: true
+    allow-pw: true
+  storage:
+    layout:
+      name: direct
+  packages:
+    - python3
+    - tar
+    - zstd
+  late-commands:
+    - curtin in-target --target=/target -- mkdir -p /opt/pios-core
+    - curtin in-target --target=/target -- sh -c 'printf "%s\n" "piosbuilder ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-piosbuilder'
+    - curtin in-target --target=/target -- chmod 0440 /etc/sudoers.d/90-piosbuilder

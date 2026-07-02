@@ -1,0 +1,21 @@
+[project]
+name = "pios-core-aws"
+version = "0.1.0"
+description = "PIOS 2.0 Core Managed AWS pilot implementation"
+requires-python = ">=3.11"
+dependencies = [
+  "aws-cdk-lib>=2.0.0,<3.0.0",
+  "constructs>=10.0.0,<11.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0,<9.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.setuptools.packages.find]
+include = ["infra", "services*"]

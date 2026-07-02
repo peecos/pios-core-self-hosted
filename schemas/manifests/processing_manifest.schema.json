@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pios.local/schemas/manifests/processing_manifest.schema.json",
+  "title": "PIOS Core processing manifest",
+  "type": "object",
+  "required": [
+    "manifest_id",
+    "owner_id",
+    "idempotency_key",
+    "status",
+    "created_at",
+    "requested_steps"
+  ],
+  "properties": {
+    "manifest_id": {
+      "type": "string"
+    },
+    "owner_id": {
+      "type": "string",
+      "pattern": "^owner_[a-z0-9_]+$"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "pending",
+        "processing",
+        "completed",
+        "failed"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_original_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "recorded_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "requested_steps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "error": {
+      "type": "string"
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "boolean",
+          "object",
+          "array",
+          "null"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false
+}

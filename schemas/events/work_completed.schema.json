@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pios.local/schemas/events/work_completed.schema.json",
+  "title": "PIOS Core work_completed event",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "event_id",
+    "event_type",
+    "actor",
+    "owner_id",
+    "idempotency_key",
+    "source",
+    "source_original_time",
+    "occurred_time",
+    "recorded_time",
+    "event_object_key",
+    "s3_write_condition",
+    "title",
+    "summary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "event_envelope_v1"
+    },
+    "event_id": {
+      "type": "string",
+      "description": "ULID."
+    },
+    "event_type": {
+      "const": "work_completed"
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Owner, agent, connector, or system actor that produced the event."
+    },
+    "owner_id": {
+      "type": "string",
+      "pattern": "^owner_[a-z0-9_]+$"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "type": "string"
+    },
+    "source_original_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp from the original source or source event when available."
+    },
+    "occurred_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the work or activity happened."
+    },
+    "recorded_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When Core recorded this event."
+    },
+    "event_object_key": {
+      "type": "string",
+      "pattern": "^events/year=[0-9]{4}/month=[0-9]{2}/day=[0-9]{2}/source=[^/]+/[^/]+\\.json$"
+    },
+    "s3_write_condition": {
+      "const": "If-None-Match:*"
+    },
+    "title": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "detail_ref": {
+      "type": "string"
+    },
+    "manifest_ref": {
+      "type": "string"
+    },
+    "original_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "boolean",
+          "object",
+          "array",
+          "null"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false
+}
