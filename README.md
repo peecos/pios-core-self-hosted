@@ -23,6 +23,16 @@ Boundaries:
 - provider support is limited to what the readiness matrix explicitly states;
 - AWS owners should normally use `https://github.com/peecos/pios-core-aws-template`.
 
+## Open by Design
+
+Use this path, study it, adapt it, operate it independently, or fork it. Code,
+release tooling, and install materials use Apache-2.0. Independent
+implementations and compatible services are welcome. Names and official
+endorsement claims are handled separately only to prevent confusion.
+
+See [OPENNESS.md](OPENNESS.md) for the plain-language guide and
+[LICENSE](LICENSE) for the formal terms.
+
 ## License and Attribution
 
 Code, schemas, scripts, release tooling, and install documentation in this
