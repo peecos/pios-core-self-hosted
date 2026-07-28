@@ -208,6 +208,19 @@ python3 scripts/pios_self_hosted_vm.py status \
   --workspace /safe/local/path/pios-vm-runs --run-id local-empty-001
 ```
 
+For a read-only diagnostic report, including the recorded input hashes, wrapper
+artifact presence, QEMU `-nic none` posture, health-record result, and any
+guest metadata-init attempt detected in the serial log:
+
+```bash
+python3 scripts/pios_self_hosted_vm.py diagnostics \
+  --workspace /safe/local/path/pios-vm-runs --run-id local-empty-001
+```
+
+Diagnostics never starts, stops, writes to, or cleans up a VM run. A detected
+metadata-init attempt is a local-image/profile issue to resolve before a repeat
+boot; it does not mean the wrapper enabled networking.
+
 Stop a run (records stop evidence without changing the base image):
 
 ```bash

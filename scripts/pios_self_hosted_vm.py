@@ -9,6 +9,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -21,7 +22,11 @@ from typing import Any
 
 WORKSPACE_MARKER = ".pios-self-hosted-vm-workspace.json"
 RUN_RECORD = "run.json"
-HEALTH_MARKERS = ('"schema_version": "self_hosted_core_health_check_v1"', '"status": "passed"')
+HEALTH_SCHEMA = "self_hosted_core_health_check_v1"
+HEALTH_STATUS_PATTERN = re.compile(
+    rf'"schema_version"\s*:\s*"{HEALTH_SCHEMA}".{{0,4096}}?"status"\s*:\s*"(?P<status>[^"]+)"',
+    re.DOTALL,
+)
 
 
 def utc_now() -> str:
@@ -128,10 +133,12 @@ def health_from_log(log_path: Path) -> dict[str, Any]:
     if not log_path.is_file():
         return {"status": "not_available", "reason": "serial log is not available"}
     content = log_path.read_text(errors="replace")
+    statuses = [match.group("status") for match in HEALTH_STATUS_PATTERN.finditer(content)]
     return {
-        "status": "passed" if all(marker in content for marker in HEALTH_MARKERS) else "pending_or_failed",
-        "health_schema_seen": HEALTH_MARKERS[0] in content,
-        "passed_status_seen": HEALTH_MARKERS[1] in content,
+        "status": "passed" if "passed" in statuses else "pending_or_failed",
+        "health_schema_seen": HEALTH_SCHEMA in content,
+        "health_record_statuses": statuses,
+        "passed_status_seen": "passed" in statuses,
     }
 
 
@@ -149,6 +156,46 @@ def status(workspace: Path, run_id: str) -> dict[str, Any]:
         "record": str(workspace / "runs" / run_id / RUN_RECORD),
         "serial_log": record["serial_log"],
         "boundaries": record["boundaries"],
+    }
+
+
+def command_disables_network(command: list[str]) -> bool:
+    return any(command[index:index + 2] == ["-nic", "none"] for index in range(len(command) - 1))
+
+
+def diagnostics(workspace: Path, run_id: str) -> dict[str, Any]:
+    _, record = read_record(workspace, run_id)
+    serial_log = Path(record["serial_log"])
+    content = serial_log.read_text(errors="replace") if serial_log.is_file() else ""
+    metadata_attempt = (
+        "pios_google_metadata_init_result_v1" in content
+        and ("metadata_unavailable" in content or "Network is unreachable" in content)
+    )
+    warnings = []
+    if not command_disables_network(record["command"]):
+        warnings.append("QEMU command does not contain -nic none")
+    if metadata_attempt:
+        warnings.append("guest metadata-init attempted an unreachable metadata lookup")
+    return {
+        "schema_version": "pios_self_hosted_vm_diagnostics_v1",
+        "checked_at": utc_now(),
+        "run_id": run_id,
+        "networking": {
+            "qemu_nic_none": command_disables_network(record["command"]),
+            "host_directory_mounts": False,
+            "guest_metadata_attempt_detected": metadata_attempt,
+        },
+        "inputs": {
+            "base_image": record["image"],
+            "base_image_sha256": record["image_sha256"],
+            "seed_iso": record["seed_iso"],
+        },
+        "artifacts": {
+            name: {"path": record[name], "exists": Path(record[name]).is_file()}
+            for name in ("overlay", "edk2_vars", "serial_log")
+        },
+        "health": health_from_log(serial_log),
+        "warnings": warnings,
     }
 
 
@@ -262,7 +309,7 @@ def delete_workspace(workspace: Path, confirmation: bool, action: str) -> dict[s
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Operate a data-empty local ARM64 QEMU PIOS Core image safely.")
-    parser.add_argument("operation", nargs="?", choices=("start", "status", "stop", "cleanup", "reset"), default="start")
+    parser.add_argument("operation", nargs="?", choices=("start", "status", "diagnostics", "stop", "cleanup", "reset"), default="start")
     parser.add_argument("--workspace", type=Path, default=Path(".pios-self-hosted-vm"))
     parser.add_argument("--run-id")
     parser.add_argument("--image", type=Path)
@@ -291,6 +338,10 @@ def main(argv: list[str] | None = None) -> int:
             if not args.run_id:
                 raise ValueError("status requires --run-id")
             result = status(workspace, args.run_id)
+        elif args.operation == "diagnostics":
+            if not args.run_id:
+                raise ValueError("diagnostics requires --run-id")
+            result = diagnostics(workspace, args.run_id)
         elif args.operation == "stop":
             if not args.run_id:
                 raise ValueError("stop requires --run-id")
