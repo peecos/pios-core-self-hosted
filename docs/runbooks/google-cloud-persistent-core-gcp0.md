@@ -131,6 +131,28 @@ access.
   breach, and owner exit/deletion. Never delete data automatically merely from
   a cost alert.
 
+## Duplication And Recovery Model
+
+Complete this while the Core is still data-empty, before any owner-data
+migration.
+
+1. **Golden data-empty template:** retain the reviewed ARM64 custom image and
+   synthetic first-boot manifest. Create a new VM from this path when an
+   independent Core is needed; it receives a fresh instance identity and fresh
+   Core/key initialization.
+2. **Snapshot/restore clone:** snapshot the boot, Core-data, and key-custody
+   disks after a successful health check. Restore the disks into an isolated
+   no-public-IP replacement VM when the goal is recovery or an exact clone.
+   This intentionally carries the existing Core state and keys.
+3. **Post-health proof:** immediately after GCP-1 health passes, retain the
+   golden image and create one snapshot set. Run one isolated restore test,
+   verify health, then delete the test VM/disks.
+
+New instances do not automatically inherit instance name, internal/external IP,
+IAM/service identity, firewall attachment, or operator-access settings. Apply
+those from the approved deployment configuration. Do not use a snapshot clone
+as an independent owner Core without fresh identity and key initialization.
+
 ## GCP-1 Preflight Checklist
 
 - [ ] Project ID and organization/folder boundary
