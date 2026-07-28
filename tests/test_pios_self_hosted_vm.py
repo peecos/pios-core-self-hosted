@@ -7,6 +7,7 @@ from scripts import pios_self_hosted_vm as vm
 from scripts import pios_google_metadata_init as metadata_init
 from scripts.build_self_hosted_qemu_image_candidate import build_qemu_command
 from scripts.pios_local_synthetic_source import run_fixture_suite
+from scripts.plan_google_cloud_import_proof import build_plan
 from scripts.build_self_hosted_image_root import build_self_hosted_image_root
 
 
@@ -162,3 +163,27 @@ class PiosSelfHostedVmTests(unittest.TestCase):
             self.assertEqual(fixtures["retry_second"]["status"], "accepted")
             self.assertEqual(fixtures["revoked_attempt"]["code"], "grant_revoked")
             self.assertEqual(fixtures["export"]["count"], 2)
+
+    def test_gcp_planner_accepts_standalone_qcow2_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            manifest_path = Path(directory) / "release-manifest.json"
+            manifest_path.write_text(json.dumps({
+                "schema_version": "self_hosted_qemu_image_release_manifest_v1",
+                "run_id": "synthetic-qemu",
+                "standalone_image_name": "synthetic.qcow2",
+                "standalone_image_sha256": "digest",
+                "inspection": {"format": "qcow2"},
+            }))
+            plan = build_plan(
+                release_manifest_path=manifest_path,
+                project_id="<project>",
+                region="<region>",
+                zone="<zone>",
+                staging_bucket="<bucket>",
+                image_name="synthetic-image",
+                machine_type="t2a-standard-2",
+                architecture="arm64",
+            )
+            self.assertEqual(plan["cloud_calls"], 0)
+            self.assertEqual(plan["source_artifact"]["image_name"], "synthetic.qcow2")
+            self.assertEqual(plan["source_artifact"]["architecture_evidence"], "explicit_plan_argument")

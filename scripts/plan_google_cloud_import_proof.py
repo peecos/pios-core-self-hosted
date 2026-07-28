@@ -42,19 +42,23 @@ def build_plan(
     staging_bucket: str,
     image_name: str,
     machine_type: str,
+    architecture: str,
 ) -> dict[str, Any]:
     manifest = load_json(release_manifest_path)
     artifact = manifest.get("artifact", {})
-    image_name_from_manifest = artifact.get("image_name")
+    if not isinstance(artifact, dict):
+        artifact = {}
+    image_name_from_manifest = artifact.get("image_name") or manifest.get("standalone_image_name")
     if not image_name_from_manifest:
-        raise ValueError("release manifest artifact.image_name is required")
+        raise ValueError("release manifest must provide artifact.image_name or standalone_image_name")
 
-    architecture = artifact.get("architecture")
-    image_format = artifact.get("format")
+    manifest_architecture = artifact.get("architecture") or manifest.get("architecture")
+    resolved_architecture = manifest_architecture or architecture
+    image_format = artifact.get("format") or manifest.get("inspection", {}).get("format")
     if image_format != "qcow2":
         raise ValueError(f"expected qcow2 artifact, got {image_format!r}")
-    if architecture != "arm64":
-        raise ValueError(f"expected arm64 artifact for first Google Cloud plan, got {architecture!r}")
+    if resolved_architecture != "arm64":
+        raise ValueError(f"expected arm64 artifact for first Google Cloud plan, got {resolved_architecture!r}")
 
     raw_name = "disk.raw"
     archive_name = f"{Path(image_name_from_manifest).stem}-disk-raw.tar.gz"
@@ -71,11 +75,12 @@ def build_plan(
         "region": region,
         "zone": zone,
         "release_manifest": str(release_manifest_path),
-        "release_id": manifest.get("release_id"),
+        "release_id": manifest.get("release_id") or manifest.get("run_id"),
         "source_artifact": {
             "image_name": image_name_from_manifest,
-            "image_sha256": artifact.get("image_sha256"),
-            "architecture": architecture,
+            "image_sha256": artifact.get("image_sha256") or manifest.get("standalone_image_sha256"),
+            "architecture": resolved_architecture,
+            "architecture_evidence": "release_manifest" if manifest_architecture else "explicit_plan_argument",
             "format": image_format,
         },
         "temporary_provider_artifacts": {
@@ -161,6 +166,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--staging-bucket", default="<owner-approved-staging-bucket>")
     parser.add_argument("--image-name", default="pios-core-self-hosted-qemu-arm64-proof")
     parser.add_argument("--machine-type", default="<owner-approved-arm64-machine-type>")
+    parser.add_argument("--architecture", default="arm64")
     return parser
 
 
@@ -178,6 +184,7 @@ def main(argv: list[str] | None = None) -> int:
         staging_bucket=args.staging_bucket,
         image_name=args.image_name,
         machine_type=args.machine_type,
+        architecture=args.architecture,
     )
     output = output_dir / f"{args.image_name}-plan.json"
     output.write_text(json.dumps(plan, indent=2, sort_keys=True) + "\n")

@@ -6,6 +6,17 @@ Created: 2026-07-02
 This runbook defines the first planned cloud-provider import proof for the PIOS
 Core Self-Hosted golden image path.
 
+For a retained, one-owner, data-empty Google Compute Engine Core, use the
+separate GCP-0 deployment-review runbook first:
+
+```text
+docs/runbooks/google-cloud-persistent-core-gcp0.md
+```
+
+This import-proof runbook remains cleanup-oriented experimental evidence. It
+does not itself authorize retaining a VM, disks, snapshots, image, or staging
+artifact after a proof.
+
 It does not authorize Google Cloud resource creation, billing exposure, image
 upload, VM launch, or provider support claims.
 
