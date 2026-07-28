@@ -53,6 +53,14 @@ authorization, not assumptions made by this review.
 - Serial console is break-glass evidence only, controlled by a separately named
   MFA identity; it is never a data plane.
 
+This is a **GCP-1 stage rule**, not a permanent claim that a public address can
+never be relevant. The Joensuu Susicorn MVP is a separate public application
+runtime and demonstrates a legitimate later need for web ingress. If a PIOS
+application or owner-approved public surface later needs inbound Internet
+traffic, design a separate application/edge ingress path with its own identity,
+authorization, firewall, TLS, logging, and incident controls. Do not attach a
+public IP or public listener directly to the Core VM merely for convenience.
+
 Name before GCP-1: billing owner, deployment operator, runtime operator,
 auditor, and break-glass recovery identity. Do not use AWS identities, generic
 keys, app credentials, or shared human accounts.
