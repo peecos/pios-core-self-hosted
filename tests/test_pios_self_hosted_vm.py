@@ -6,6 +6,7 @@ import unittest
 from scripts import pios_self_hosted_vm as vm
 from scripts import pios_google_metadata_init as metadata_init
 from scripts.build_self_hosted_qemu_image_candidate import build_qemu_command
+from scripts.pios_local_synthetic_source import run_fixture_suite
 from scripts.build_self_hosted_image_root import build_self_hosted_image_root
 
 
@@ -148,3 +149,16 @@ class PiosSelfHostedVmTests(unittest.TestCase):
         )
         self.assertIn("user,id=net0", command)
         self.assertNotIn("user,restrict=on,id=net0", command)
+
+    def test_synthetic_source_fixture_loop_covers_required_outcomes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            result = run_fixture_suite(Path(directory) / "synthetic")
+            fixtures = result["fixtures"]
+            self.assertEqual(result["status"], "passed")
+            self.assertEqual(fixtures["accepted"]["status"], "accepted")
+            self.assertEqual(fixtures["duplicate"]["status"], "duplicate")
+            self.assertEqual(fixtures["denied"]["status"], "denied")
+            self.assertEqual(fixtures["retry_first"]["status"], "retry")
+            self.assertEqual(fixtures["retry_second"]["status"], "accepted")
+            self.assertEqual(fixtures["revoked_attempt"]["code"], "grant_revoked")
+            self.assertEqual(fixtures["export"]["count"], 2)
