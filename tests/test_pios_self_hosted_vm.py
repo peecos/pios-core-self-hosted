@@ -4,6 +4,9 @@ import tempfile
 import unittest
 
 from scripts import pios_self_hosted_vm as vm
+from scripts import pios_google_metadata_init as metadata_init
+from scripts.build_self_hosted_qemu_image_candidate import build_qemu_command
+from scripts.build_self_hosted_image_root import build_self_hosted_image_root
 
 
 class PiosSelfHostedVmTests(unittest.TestCase):
@@ -78,3 +81,70 @@ class PiosSelfHostedVmTests(unittest.TestCase):
             self.assertTrue(result["networking"]["qemu_nic_none"])
             self.assertTrue(result["networking"]["guest_metadata_attempt_detected"])
             self.assertEqual(result["health"]["status"], "passed")
+
+    def test_metadata_init_skips_local_qemu_without_network_attempt(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            dmi_root = Path(directory)
+            (dmi_root / "sys_vendor").write_text("QEMU")
+            (dmi_root / "product_name").write_text("Standard PC")
+            called = False
+
+            def fetcher(_: int) -> None:
+                nonlocal called
+                called = True
+
+            result = metadata_init.metadata_init_result(dmi_root=dmi_root, fetcher=fetcher)
+            self.assertEqual(result["status"], "skipped_not_google_compute")
+            self.assertFalse(result["network_attempted"])
+            self.assertFalse(called)
+
+    def test_metadata_init_only_fetches_on_google_compute_dmi(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            dmi_root = Path(directory)
+            (dmi_root / "sys_vendor").write_text("Google")
+            (dmi_root / "product_name").write_text("Google Compute Engine")
+            called = False
+
+            def fetcher(_: int) -> None:
+                nonlocal called
+                called = True
+
+            result = metadata_init.metadata_init_result(dmi_root=dmi_root, fetcher=fetcher)
+            self.assertEqual(result["status"], "metadata_reachable")
+            self.assertTrue(result["network_attempted"])
+            self.assertTrue(called)
+
+    def test_image_root_build_includes_only_present_data_empty_sources(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            result = build_self_hosted_image_root(
+                output_dir=Path(directory) / "image-root",
+                force=False,
+                run_hygiene=True,
+            )
+            self.assertEqual(result["hygiene"]["status"], "passed")
+            self.assertIn("scripts/pios_google_metadata_init.py", result["copied"])
+
+    def test_candidate_qemu_command_disables_outbound_network_by_default(self) -> None:
+        command = build_qemu_command(
+            qemu="qemu-system-aarch64",
+            code_fd="code.fd",
+            vars_fd=Path("vars.fd"),
+            disk_image=Path("disk.qcow2"),
+            seed_iso=Path("seed.iso"),
+            allow_user_network=False,
+        )
+        self.assertIn("-netdev", command)
+        self.assertIn("user,restrict=on,id=net0", command)
+        self.assertIn("virtio-net-pci,netdev=net0", command)
+
+    def test_candidate_qemu_command_requires_explicit_opt_in_for_unrestricted_network(self) -> None:
+        command = build_qemu_command(
+            qemu="qemu-system-aarch64",
+            code_fd="code.fd",
+            vars_fd=Path("vars.fd"),
+            disk_image=Path("disk.qcow2"),
+            seed_iso=Path("seed.iso"),
+            allow_user_network=True,
+        )
+        self.assertIn("user,id=net0", command)
+        self.assertNotIn("user,restrict=on,id=net0", command)

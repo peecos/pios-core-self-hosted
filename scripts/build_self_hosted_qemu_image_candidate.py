@@ -305,18 +305,15 @@ def create_overlay(*, qemu_img: str, backing_image: Path, overlay: Path) -> None
     )
 
 
-def boot_qemu(
+def build_qemu_command(
     *,
     qemu: str,
     code_fd: str,
-    vars_template: str,
     vars_fd: Path,
     disk_image: Path,
     seed_iso: Path,
-    timeout_seconds: int,
-    live_log_path: Path | None = None,
-) -> str:
-    shutil.copy2(vars_template, vars_fd)
+    allow_user_network: bool,
+) -> list[str]:
     command = [
         qemu,
         "-machine",
@@ -335,12 +332,37 @@ def boot_qemu(
         f"if=virtio,format=qcow2,file={disk_image}",
         "-drive",
         f"if=virtio,format=raw,readonly=on,file={seed_iso}",
-        "-netdev",
-        "user,id=net0",
-        "-device",
-        "virtio-net-pci,netdev=net0",
-        "-nographic",
     ]
+    if allow_user_network:
+        command.extend(["-netdev", "user,id=net0", "-device", "virtio-net-pci,netdev=net0"])
+    else:
+        command.extend(
+            ["-netdev", "user,restrict=on,id=net0", "-device", "virtio-net-pci,netdev=net0"]
+        )
+    return command + ["-nographic"]
+
+
+def boot_qemu(
+    *,
+    qemu: str,
+    code_fd: str,
+    vars_template: str,
+    vars_fd: Path,
+    disk_image: Path,
+    seed_iso: Path,
+    timeout_seconds: int,
+    live_log_path: Path | None = None,
+    allow_user_network: bool = False,
+) -> str:
+    shutil.copy2(vars_template, vars_fd)
+    command = build_qemu_command(
+        qemu=qemu,
+        code_fd=code_fd,
+        vars_fd=vars_fd,
+        disk_image=disk_image,
+        seed_iso=seed_iso,
+        allow_user_network=allow_user_network,
+    )
     process = subprocess.Popen(
         command,
         cwd=REPO_ROOT,
@@ -404,6 +426,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Install the matching linux-modules-extra package so Google gVNIC can bind on T2A imports.",
     )
     parser.add_argument("--google-gvnic-deb-dir", type=Path, default=DEFAULT_GOOGLE_GVNIC_DEB_DIR)
+    parser.add_argument(
+        "--allow-user-network",
+        action="store_true",
+        help="Explicitly enable QEMU user-mode networking for a provider-specific proof; local builds remain offline by default.",
+    )
     return parser
 
 
@@ -445,6 +472,7 @@ def main(argv: list[str] | None = None) -> int:
         seed_iso=build_seed,
         timeout_seconds=args.timeout_seconds,
         live_log_path=output_dir / f"{run_id}-build-serial-live.log",
+        allow_user_network=args.allow_user_network,
     )
     build_log_path = output_dir / f"{run_id}-build-serial.log"
     build_log_path.write_text(build_log)
@@ -470,6 +498,7 @@ def main(argv: list[str] | None = None) -> int:
         seed_iso=proof_seed,
         timeout_seconds=args.timeout_seconds,
         live_log_path=output_dir / f"{run_id}-proof-serial-live.log",
+        allow_user_network=args.allow_user_network,
     )
     proof_log_path = output_dir / f"{run_id}-proof-serial.log"
     proof_log_path.write_text(proof_log)
@@ -491,6 +520,8 @@ def main(argv: list[str] | None = None) -> int:
         "proof_overlay": str(proof_overlay),
         "image_root_build": build_result,
         "install_google_gvnic_modules": args.install_google_gvnic_modules,
+        "allow_user_network": args.allow_user_network,
+        "network_mode": "user" if args.allow_user_network else "user_restricted_no_outbound",
         "google_gvnic_deb_dir": str(resolve_repo_path(args.google_gvnic_deb_dir))
         if args.install_google_gvnic_modules
         else None,

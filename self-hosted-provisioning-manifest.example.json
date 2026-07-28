@@ -1,0 +1,24 @@
+{
+  "manifest_version": "self_hosted_provisioning_manifest_v1",
+  "core_instance": {
+    "env_name": "local",
+    "owner_id": "owner_example",
+    "owner_slug": "example"
+  },
+  "self_hosted": {
+    "core_root": "/var/lib/pios-core/owners/example/core",
+    "key_store_path": "/var/lib/pios-core/owners/example/keys",
+    "key_provider": "local_dev_file_keys"
+  },
+  "services": {
+    "start_core_api": false,
+    "start_connectors": false,
+    "start_scheduler": false
+  },
+  "authorization": {
+    "hydrate_bundle": false,
+    "connector_sync": false,
+    "broad_migration": false,
+    "source_decommission": false
+  }
+}

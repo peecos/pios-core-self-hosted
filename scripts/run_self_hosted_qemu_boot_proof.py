@@ -238,10 +238,8 @@ def run_qemu_proof(
         f"if=virtio,format=qcow2,file={overlay}",
         "-drive",
         f"if=virtio,format=raw,readonly=on,file={seed_iso}",
-        "-netdev",
-        "user,id=net0",
-        "-device",
-        "virtio-net-pci,netdev=net0",
+        "-nic",
+        "none",
         "-nographic",
     ]
     completed = run(command, timeout=timeout_seconds)

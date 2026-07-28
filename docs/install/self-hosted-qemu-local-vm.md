@@ -153,8 +153,7 @@ qemu-system-aarch64 \
   -drive if=pflash,format=raw,file=/path/to/edk2-arm-vars-copy.fd \
   -drive if=virtio,format=qcow2,file=/path/to/proof-overlay.qcow2 \
   -drive if=virtio,format=raw,readonly=on,file=/path/to/seed.iso \
-  -netdev user,id=net0 \
-  -device virtio-net-pci,netdev=net0 \
+  -nic none \
   -nographic
 ```
 
@@ -244,6 +243,19 @@ python3 scripts/pios_self_hosted_vm.py reset \
 The wrapper is deliberately local-only. It does not enable Core API,
 connectors, scheduler, bundle hydration, or networking, and it must not be
 pointed at iCloud, Storage-wiki, or personal-data paths.
+
+The data-empty image root retains a Google metadata adapter for provider
+portability, but it is fail-closed: on local QEMU it identifies a non-Google
+DMI environment and exits without attempting a metadata request. A provider
+metadata request is possible only after the guest identifies itself as Google
+Compute Engine.
+
+The image-candidate builder is separate from the ordinary local wrapper. Its
+default uses QEMU user networking with `restrict=on` only because a pristine
+cloud base image waits for an interface before cloud-init can install the
+data-empty payload. This mode disables guest outbound connections by default;
+unrestricted user networking requires the builder's explicit
+`--allow-user-network` option. The ordinary local wrapper remains `-nic none`.
 
 ## Expected First-Boot Result
 
