@@ -39,6 +39,43 @@ identity, region, or credential.
 Current machine availability and quota are deployment-time checks after owner
 authorization, not assumptions made by this review.
 
+## Proposed Owner-Reviewed Baseline (2026-07-28)
+
+The owner selected `pios-core-solo` as the intended project ID for a dedicated
+one-owner Core. It is a proposed identifier only: do not create or reserve it
+until GCP-1 is explicitly authorized and availability is confirmed.
+
+| Decision | Proposed baseline |
+| --- | --- |
+| Project | ID `pios-core-solo`; display name `PIOS Core Solo`; dedicated one-owner project |
+| Billing | Valto owner approval; planning ceiling EUR 200/month in the billing-account currency; alerts at 50%, 80%, and 100% |
+| Location | Primary `europe-north1-a`; `europe-west4` is the import-proof fallback only if ARM quota/availability blocks the primary |
+| Compute | `t2a-standard-2`, ARM64, standard VM, automatic restart and host-maintenance migration |
+| VM protection | Shielded VM: Secure Boot, vTPM, integrity monitoring; deletion protection enabled |
+| Storage | 40 GiB `pd-balanced` boot disk; 100 GiB `pd-balanced` Core-data disk; 20 GiB separate key-custody disk; Core/key disks retained on instance deletion |
+| Access | No external IP; OS Login plus IAP TCP forwarding for the named owner operator; no default public SSH rule |
+| Service identity | No broad default service account; attach only a later purpose-scoped identity after review |
+| Encryption | Google-managed encryption for data-empty GCP-1 only; CMEK/key-custody design is mandatory before owner data or GCP-2 |
+| Backup | One manual post-health snapshot, then an isolated restore test; no automatic owner-data backup policy until GCP-2 |
+| Monitoring | Platform status and bounded serial evidence only; no guest telemetry/export agent until a reviewed egress/privacy decision |
+
+## Which Decisions Can Change Later
+
+- **Do not treat as changeable:** the project ID is a lifetime identifier. The
+  project can be deleted and recreated, but the desired identifier must be
+  correct before creation.
+- **Change with migration/review:** region/zone, ARM architecture, image
+  lineage, and encryption/CMEK posture. Plan a replacement VM/disk and
+  restore/export path rather than an in-place switch.
+- **Change with downtime or compatibility checks:** machine type. Do not assume
+  a T2A change is a routine in-place resize; use a planned stop/restart or
+  replacement path.
+- **Grow, not shrink:** Persistent Disk capacity can be increased, but disk
+  reduction requires a migration/rebuild approach.
+- **Configurable later:** budgets/alerts, snapshots, firewall rules, IAP/OS
+  Login policy, and external IP assignment. A public IP remains absent in
+  GCP-1; if needed later, use a separately authorized application-edge design.
+
 ## Network And Access
 
 - No external IP, public Core/API endpoint, load balancer, DNS record, app
