@@ -165,6 +165,73 @@ For ordinary use, the owner-facing flow should be wrapped by a setup script or
 VM frontend. The raw QEMU command is the current proof-level interface, not the
 final product experience.
 
+## Local Developer Wrapper (VM-0 / VM-1)
+
+For a repeatable data-empty local workflow, use the repository wrapper. It is a
+host-side tool: it does not build or download an image, create a provisioning
+seed, mount host directories, or enable VM networking. Supply an already
+verified, standalone data-empty QCOW2 image and an owner-authorized seed ISO.
+
+The default `start` invocation is a non-mutating dry-run. It checks the image
+format, backing-file safety, QEMU/HVF firmware, and exact command it would run;
+it creates no overlay, firmware copy, log, or workspace.
+
+```bash
+python3 scripts/pios_self_hosted_vm.py \
+  --image /safe/local/path/qemu-standalone-20260703.qcow2 \
+  --seed-iso /safe/local/path/data-empty-first-boot-seed.iso \
+  --expected-image-sha256 <verified-image-sha256>
+```
+
+To boot, add an explicit confirmation and choose a run workspace outside the
+image and Core root. The wrapper creates a fresh QCOW2 overlay and EDK2 vars
+copy under that workspace, captures the serial log there, and starts QEMU with
+`-nic none`.
+
+```bash
+python3 scripts/pios_self_hosted_vm.py \
+  --workspace /safe/local/path/pios-vm-runs \
+  --run-id local-empty-001 \
+  --image /safe/local/path/qemu-standalone-20260703.qcow2 \
+  --seed-iso /safe/local/path/data-empty-first-boot-seed.iso \
+  --expected-image-sha256 <verified-image-sha256> \
+  --confirm-boot
+```
+
+The seed ISO must itself keep all service flags and authorization gates false.
+The wrapper does not inspect or alter it; do not use an owner-data seed.
+
+Check the recorded process state and serial-log health evidence:
+
+```bash
+python3 scripts/pios_self_hosted_vm.py status \
+  --workspace /safe/local/path/pios-vm-runs --run-id local-empty-001
+```
+
+Stop a run (records stop evidence without changing the base image):
+
+```bash
+python3 scripts/pios_self_hosted_vm.py stop \
+  --workspace /safe/local/path/pios-vm-runs --run-id local-empty-001
+```
+
+After stopping every run, remove only the wrapper-created workspace with an
+explicit confirmation. `reset` is the same deliberately destructive operation
+under a name suitable for a fresh developer retry. Both refuse any directory
+that lacks the wrapper marker.
+
+```bash
+python3 scripts/pios_self_hosted_vm.py cleanup \
+  --workspace /safe/local/path/pios-vm-runs --confirm-cleanup
+
+python3 scripts/pios_self_hosted_vm.py reset \
+  --workspace /safe/local/path/pios-vm-runs --confirm-reset
+```
+
+The wrapper is deliberately local-only. It does not enable Core API,
+connectors, scheduler, bundle hydration, or networking, and it must not be
+pointed at iCloud, Storage-wiki, or personal-data paths.
+
 ## Expected First-Boot Result
 
 `pios-core-init` should create:
