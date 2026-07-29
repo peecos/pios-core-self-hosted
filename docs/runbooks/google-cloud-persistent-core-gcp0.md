@@ -29,7 +29,7 @@ identity, region, or credential.
 | --- | --- | --- |
 | Project/billing | Dedicated one-owner project and named billing account | Project ID, billing owner, charge approval |
 | Region/zone | ARM-capable zone; all zonal disks co-located | Region, zone, residency rationale |
-| Machine | ARM64 T2A; review begins at `t2a-standard-2` | Exact machine type and quota |
+| Machine | ARM64; live primary is `c4a-standard-2` | Exact machine type and quota |
 | Boot disk | 30–50 GiB persistent boot disk, no owner data | Disk type and size |
 | Core disk | Separate 100 GiB persistent balanced disk | Disk type, size, mount path |
 | Keys | Separate persistent key disk or hardened provider | Key custody design |
@@ -48,9 +48,9 @@ until GCP-1 is explicitly authorized and availability is confirmed.
 | Decision | Proposed baseline |
 | --- | --- |
 | Project | ID `pios-core-solo`; display name `PIOS Core Solo`; dedicated one-owner project |
-| Billing | Valto owner approval; planning ceiling EUR 200/month in the billing-account currency; alerts at 50%, 80%, and 100% |
+| Billing | Valto owner approval; active project-scoped ceiling 200 USD/month (the billing account currency), with alerts at 50%, 80%, and 100% |
 | Location | Primary `europe-north1-a`; `europe-west4` is the import-proof fallback only if ARM quota/availability blocks the primary |
-| Compute | `t2a-standard-2`, ARM64, standard VM, automatic restart and host-maintenance migration |
+| Compute | `c4a-standard-2`, ARM64, standard VM, automatic restart and host-maintenance migration. `t2a-standard-2` is retained only as the `europe-west4` fallback because it is not offered in `europe-north1-a`. |
 | VM protection | Shielded VM: Secure Boot, vTPM, integrity monitoring; deletion protection enabled |
 | Storage | 40 GiB `pd-balanced` boot disk; 100 GiB `pd-balanced` Core-data disk; 20 GiB separate key-custody disk; Core/key disks retained on instance deletion |
 | Access | No external IP; OS Login plus IAP TCP forwarding for the named owner operator; no default public SSH rule |
