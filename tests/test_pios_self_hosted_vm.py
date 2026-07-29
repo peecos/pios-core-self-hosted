@@ -213,6 +213,7 @@ class PiosSelfHostedVmTests(unittest.TestCase):
                 machine_type="c4a-standard-2",
                 network="pios-core-vpc",
                 subnet="pios-core-en1",
+                boot_disk="pios-core-boot",
                 core_disk="pios-core-data",
                 key_disk="pios-core-keys",
                 metadata_manifest="synthetic.json",
@@ -223,4 +224,5 @@ class PiosSelfHostedVmTests(unittest.TestCase):
             self.assertIn("--machine-type=c4a-standard-2", boot)
             self.assertIn("network=pios-core-vpc,subnet=pios-core-en1,no-address", boot)
             self.assertIn("--no-service-account", boot)
+            self.assertIn("boot=yes,mode=rw,auto-delete=no", boot)
             self.assertNotIn("network=default", boot)

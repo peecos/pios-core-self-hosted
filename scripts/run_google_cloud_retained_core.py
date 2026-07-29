@@ -63,7 +63,7 @@ def preview_or_run(*, artifact_manifest: Path, metadata_manifest: Path, output_d
     }
     if confirm:
         executed = []
-        for name in ("create_private_import_bucket", "upload_data_empty_archive", "create_arm64_golden_image", "create_retained_core_disk", "create_retained_key_disk", "boot_retained_core_after_explicit_confirmation"):
+        for name in ("create_private_import_bucket", "upload_data_empty_archive", "create_arm64_golden_image", "create_retained_boot_disk", "create_retained_core_disk", "create_retained_key_disk", "boot_retained_core_after_explicit_confirmation"):
             completed = subprocess.run(commands[name], check=True, capture_output=True, text=True)
             executed.append({"step": name, "stdout": completed.stdout[-2000:], "stderr": completed.stderr[-2000:]})
         result.update(status="submitted", cloud_calls=len(executed), executed=executed)
@@ -81,10 +81,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--bucket", default="pios-core-solo-import-staging"); parser.add_argument("--image-name", default="pios-core-data-empty-arm64-v1")
     parser.add_argument("--instance-name", default="pios-core-solo"); parser.add_argument("--zone", default="europe-north1-a")
     parser.add_argument("--machine-type", default="c4a-standard-2"); parser.add_argument("--network", default="pios-core-vpc")
-    parser.add_argument("--subnet", default="pios-core-en1"); parser.add_argument("--core-disk", default="pios-core-data"); parser.add_argument("--key-disk", default="pios-core-keys")
+    parser.add_argument("--subnet", default="pios-core-en1"); parser.add_argument("--boot-disk", default="pios-core-boot"); parser.add_argument("--core-disk", default="pios-core-data"); parser.add_argument("--key-disk", default="pios-core-keys")
     parser.add_argument("--confirm-gcp-retained-deploy", action="store_true")
     args = parser.parse_args(argv)
-    values = {key: getattr(args, key) for key in ("project", "account", "bucket", "image_name", "instance_name", "zone", "machine_type", "network", "subnet", "core_disk", "key_disk")}
+    values = {key: getattr(args, key) for key in ("project", "account", "bucket", "image_name", "instance_name", "zone", "machine_type", "network", "subnet", "boot_disk", "core_disk", "key_disk")}
     result = preview_or_run(artifact_manifest=resolve_repo_path(args.artifact_manifest), metadata_manifest=resolve_repo_path(args.metadata_manifest), output_dir=resolve_repo_path(args.output_dir), confirm=args.confirm_gcp_retained_deploy, values=values)
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0

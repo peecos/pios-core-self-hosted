@@ -56,6 +56,7 @@ def build_commands(
     machine_type: str,
     network: str,
     subnet: str,
+    boot_disk: str,
     core_disk: str,
     key_disk: str,
     metadata_manifest: str,
@@ -78,6 +79,11 @@ def build_commands(
             "--size=100GB", "--type=pd-balanced",
             "--labels=pios_role=self_hosted_core,owner_scope=one_owner,environment=gcp1_data_empty",
         ],
+        "create_retained_boot_disk": [
+            *base, "compute", "disks", "create", boot_disk, f"--zone={zone}",
+            f"--image={image_name}", "--size=40GB", "--type=pd-balanced",
+            "--labels=pios_role=self_hosted_core,owner_scope=one_owner,environment=gcp1_data_empty",
+        ],
         "create_retained_key_disk": [
             *base, "compute", "disks", "create", key_disk, f"--zone={zone}",
             "--size=20GB", "--type=pd-balanced",
@@ -85,8 +91,8 @@ def build_commands(
         ],
         "boot_retained_core_after_explicit_confirmation": [
             *base, "compute", "instances", "create", instance_name, f"--zone={zone}",
-            f"--machine-type={machine_type}", f"--image={image_name}",
-            "--boot-disk-size=40GB", "--boot-disk-type=pd-balanced",
+            f"--machine-type={machine_type}",
+            f"--disk=name={boot_disk},boot=yes,mode=rw,auto-delete=no",
             f"--disk=name={core_disk},mode=rw,auto-delete=no",
             f"--disk=name={key_disk},mode=rw,auto-delete=no",
             f"--network-interface=network={network},subnet={subnet},no-address,nic-type=GVNIC",
@@ -143,6 +149,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--machine-type", default="c4a-standard-2")
     parser.add_argument("--network", default="pios-core-vpc")
     parser.add_argument("--subnet", default="pios-core-en1")
+    parser.add_argument("--boot-disk", default="pios-core-boot")
     parser.add_argument("--core-disk", default="pios-core-data")
     parser.add_argument("--key-disk", default="pios-core-keys")
     parser.add_argument("--metadata-manifest", default="REQUIRES_SYNTHETIC_MANIFEST_FILE")
@@ -155,7 +162,7 @@ def main(argv: list[str] | None = None) -> int:
         artifact_manifest_path=resolve_repo_path(args.artifact_manifest),
         project=args.project, account=args.account, bucket=args.bucket, image_name=args.image_name,
         instance_name=args.instance_name, zone=args.zone, machine_type=args.machine_type,
-        network=args.network, subnet=args.subnet, core_disk=args.core_disk, key_disk=args.key_disk,
+        network=args.network, subnet=args.subnet, boot_disk=args.boot_disk, core_disk=args.core_disk, key_disk=args.key_disk,
         metadata_manifest=args.metadata_manifest,
     )
     output_dir = resolve_repo_path(args.output_dir)
