@@ -171,3 +171,6 @@ as an independent owner Core without fresh identity and key initialization.
 - `docs/runbooks/google-cloud-import-proof-plan.md`: experimental cleanup proof
 - `docs/install/provider-readiness-matrix.md`: Google Cloud remains experimental
 - `scripts/plan_google_cloud_import_proof.py`: legacy proof preview only
+- `scripts/plan_google_cloud_retained_core.py`: dry-run-only retained GCP-1
+  command planner; it encodes the custom VPC, no-public-IP, no-service-account,
+  C4A primary baseline and explicit boot-confirmation gate.

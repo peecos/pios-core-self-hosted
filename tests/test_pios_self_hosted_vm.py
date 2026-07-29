@@ -8,6 +8,7 @@ from scripts import pios_google_metadata_init as metadata_init
 from scripts.build_self_hosted_qemu_image_candidate import build_qemu_command
 from scripts.pios_local_synthetic_source import run_fixture_suite
 from scripts.plan_google_cloud_import_proof import build_plan
+from scripts.plan_google_cloud_retained_core import build_plan as build_retained_core_plan
 from scripts.build_self_hosted_image_root import build_self_hosted_image_root
 
 
@@ -187,3 +188,39 @@ class PiosSelfHostedVmTests(unittest.TestCase):
             self.assertEqual(plan["cloud_calls"], 0)
             self.assertEqual(plan["source_artifact"]["image_name"], "synthetic.qcow2")
             self.assertEqual(plan["source_artifact"]["architecture_evidence"], "explicit_plan_argument")
+
+    def test_retained_gcp_planner_uses_private_c4a_baseline_and_never_calls_cloud(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            archive = Path(directory) / "disk.tar.gz"
+            archive.write_bytes(b"synthetic data-empty archive")
+            manifest_path = Path(directory) / "artifact.json"
+            manifest_path.write_text(json.dumps({
+                "schema_version": "pios_google_cloud_import_artifact_v1",
+                "status": "passed",
+                "cloud_calls": 0,
+                "archive": str(archive),
+                "archive_name": archive.name,
+                "archive_sha256": "digest",
+            }))
+            plan = build_retained_core_plan(
+                artifact_manifest_path=manifest_path,
+                project="pios-core-solo",
+                account="valto@prifina.com",
+                bucket="pios-core-solo-import-staging",
+                image_name="pios-core-data-empty-arm64-v1",
+                instance_name="pios-core-solo",
+                zone="europe-north1-a",
+                machine_type="c4a-standard-2",
+                network="pios-core-vpc",
+                subnet="pios-core-en1",
+                core_disk="pios-core-data",
+                key_disk="pios-core-keys",
+                metadata_manifest="synthetic.json",
+            )
+            boot = plan["commands"]["boot_retained_core_after_explicit_confirmation"]
+            self.assertEqual(plan["cloud_calls"], 0)
+            self.assertIn("--confirm-gcp-retained-deploy", plan["requires_confirmation_before_boot"])
+            self.assertIn("--machine-type=c4a-standard-2", boot)
+            self.assertIn("network=pios-core-vpc,subnet=pios-core-en1,no-address", boot)
+            self.assertIn("--no-service-account", boot)
+            self.assertNotIn("network=default", boot)
