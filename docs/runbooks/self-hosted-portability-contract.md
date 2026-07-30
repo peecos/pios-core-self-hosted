@@ -1,6 +1,8 @@
 # Self-Hosted Portability Contract
 
-Status: local restore, empty-init, image-root, and packaging scaffold proofs passed; golden VM image not yet built
+Status: local restore, empty-init, image-root, packaging, and data-empty ARM64
+golden-image proofs passed; provider-neutral starter release packaging remains
+in progress
 
 The AWS Core Managed implementation is the current reference build. Core
 Self-Hosted remains the portability target. This repo should keep AWS decisions
@@ -76,3 +78,15 @@ operator records.
 Plan:
 
 `docs/runbooks/self-hosted-golden-vm-image-plan.md`
+
+## Owner Bind Boundary
+
+The golden VM image is a **Neutral Golden Starter**. It can be made more
+complete through reusable code, empty schemas, setup/health/recovery tooling,
+and provider integrations without becoming owner-specific.
+
+**Owner Bind** is the explicit point at which a new instance starts to become
+owner-specific. Do not create owner identity, keys, credentials, policy,
+project/VPC/IAM principals, domain/TLS/passkey settings, Core data, or source
+records before Owner Bind. A snapshot clone is recovery state, not a Neutral
+Golden Starter and not an independent owner Core.

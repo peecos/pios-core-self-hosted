@@ -153,6 +153,16 @@ IAM/service identity, firewall attachment, or operator-access settings. Apply
 those from the approved deployment configuration. Do not use a snapshot clone
 as an independent owner Core without fresh identity and key initialization.
 
+## Owner Bind Boundary
+
+The retained golden image is a **Neutral Golden Starter**: it can gain generic
+runtime, empty schemas, health/recovery tooling, and provider support while it
+remains data-empty. **Owner Bind** is the explicit transition where a new VM
+becomes owner-specific. Only then may provisioning create/select owner
+identity, keys, credentials, owner policy, access principals, and later owner
+data. Do not use a golden-image build or a data-empty GCP proof as authority to
+create those owner-specific items early.
+
 ## GCP-1 Preflight Checklist
 
 - [ ] Project ID and organization/folder boundary

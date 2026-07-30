@@ -33,6 +33,19 @@ external VM providers have not yet been tested. AWS self-hosted VM import is
 intentionally not a current validation target because Core Managed AWS is the
 AWS-native path.
 
+## Neutral Golden Starter And Owner Bind
+
+The data-empty Core Template is a **Neutral Golden Starter**. It may contain
+reusable runtime capability, empty schemas, portability/health tooling, and
+provider guest integration, but it must contain no owner identity, keys,
+credentials, data, policy selection, or access principal.
+
+**Owner Bind** is the explicit provisioning boundary at which a Neutral Golden
+Starter becomes an owner-specific Core. Only at Owner Bind may a workflow
+create or select the owner identity, fresh keys, project/VPC/IAM principals,
+owner policy choices, and later owner data. Provider import, local proof,
+release packaging, and hygiene checks remain neutral work before this point.
+
 ## Common Provider Requirements
 
 Each provider import path should document:
@@ -46,7 +59,7 @@ Each provider import path should document:
 - whether cloud-init or equivalent first-boot metadata is supported;
 - required network/firewall defaults;
 - expected VM size for first boot;
-- how the owner supplies the provisioning manifest;
+- how Owner Bind supplies the owner-specific provisioning manifest;
 - how first-boot logs are inspected;
 - how to delete failed test imports.
 
