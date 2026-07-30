@@ -17,6 +17,11 @@ identity, region, or credential.
 - Source commit: `d05ece7` or a later owner-reviewed successor.
 - Re-run local data-empty candidate build, first-boot proof, and package/image
   checksum verification before import.
+- For the private IAP/OS Login path, build with the separately staged,
+  checksum-verified offline Google guest-agent/OS Login package directory via
+  `--install-google-guest-agent`; use `--install-google-gvnic-modules` for the
+  matching ARM64 gVNIC driver package set. Both are Neutral Golden Starter
+  capabilities, not owner-specific provisioning.
 - Record QCOW2, raw-import archive, and custom-image SHA-256 values.
 - Import only a new data-empty artifact. Do not repurpose a proof image as a
   retained Core image without fresh local proof and review.

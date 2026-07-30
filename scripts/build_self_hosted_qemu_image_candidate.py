@@ -28,6 +28,7 @@ from scripts.run_self_hosted_qemu_boot_proof import (
 
 DEFAULT_OUTPUT_DIR = Path("image-build/qemu-image-candidate")
 DEFAULT_GOOGLE_GVNIC_DEB_DIR = Path("image-build/google-gvnic-debs")
+DEFAULT_GOOGLE_GUEST_AGENT_DEB_DIR = Path("image-build/google-guest-agent-debs")
 CANDIDATE_BUILD_START = "PIOS_QEMU_CANDIDATE_BUILD_START"
 CANDIDATE_BUILD_DONE = "PIOS_QEMU_CANDIDATE_BUILD_DONE"
 CANDIDATE_PROOF_START = "PIOS_QEMU_CANDIDATE_PROOF_START"
@@ -112,23 +113,29 @@ def write_candidate_build_seed(
     run_id: str,
     install_google_gvnic_modules: bool,
     google_gvnic_deb_dir: Path,
+    install_google_guest_agent: bool,
+    google_guest_agent_deb_dir: Path,
 ) -> None:
     payload_b64 = base64.b64encode(payload_archive.read_bytes()).decode("ascii")
     payload_b64_wrapped = "\n".join(textwrap.wrap(payload_b64, width=76))
-    google_gvnic_setup = ""
+    package_dirs: list[Path] = []
     if install_google_gvnic_modules:
-        debs = sorted(google_gvnic_deb_dir.glob("*.deb"))
-        if not debs:
+        if not list(google_gvnic_deb_dir.glob("*.deb")):
             raise ValueError(f"no .deb files found in Google gVNIC deb directory: {google_gvnic_deb_dir}")
-        google_gvnic_setup = (
-            "printf '%s\\n' gve > /etc/modules-load.d/pios-google-gvnic.conf; "
+        package_dirs.append(google_gvnic_deb_dir)
+    if install_google_guest_agent:
+        if not list(google_guest_agent_deb_dir.glob("*.deb")):
+            raise ValueError(f"no .deb files found in Google guest-agent deb directory: {google_guest_agent_deb_dir}")
+        package_dirs.append(google_guest_agent_deb_dir)
+    offline_deb_setup = ""
+    if package_dirs:
+        offline_deb_setup = (
             "mkdir -p /mnt/pios-seed; "
             "mount -o ro LABEL=cidata /mnt/pios-seed || mount -o ro /dev/disk/by-label/cidata /mnt/pios-seed; "
-            "ls -l /mnt/pios-seed/google-gvnic-debs | tee /dev/console; "
-            "dpkg -i /mnt/pios-seed/google-gvnic-debs/*.deb; "
-            "modinfo gve | tee /dev/console || true; "
-            "modprobe gve || true; "
-            "umount /mnt/pios-seed || true; "
+            "ls -l /mnt/pios-seed/offline-debs | tee /dev/console; "
+            "dpkg -i /mnt/pios-seed/offline-debs/*.deb; "
+            + ("printf '%s\\n' gve > /etc/modules-load.d/pios-google-gvnic.conf; modinfo gve | tee /dev/console || true; modprobe gve || true; " if install_google_gvnic_modules else "")
+            + "umount /mnt/pios-seed || true; "
         )
     user_data = (
         "#cloud-config\n"
@@ -175,7 +182,7 @@ def write_candidate_build_seed(
         "'UseDNS=true' "
         "> /etc/systemd/network/10-pios-provider-dhcp.network; "
         "netplan generate || true; "
-        f"{google_gvnic_setup}"
+        f"{offline_deb_setup}"
         "printf '%s\\n' "
         "'[Unit]' "
         "'Description=PIOS Google metadata first-boot init' "
@@ -211,11 +218,16 @@ def write_candidate_build_seed(
         user_data=user_data,
         meta_data=f"instance-id: pios-candidate-build-{run_id}\nlocal-hostname: pios-candidate-build\n",
     )
-    if install_google_gvnic_modules:
-        deb_target = seed_dir / "google-gvnic-debs"
+    if package_dirs:
+        deb_target = seed_dir / "offline-debs"
         deb_target.mkdir(parents=True, exist_ok=True)
-        for deb in sorted(google_gvnic_deb_dir.glob("*.deb")):
-            shutil.copy2(deb, deb_target / deb.name)
+        copied: set[str] = set()
+        for package_dir in package_dirs:
+            for deb in sorted(package_dir.glob("*.deb")):
+                if deb.name in copied:
+                    continue
+                shutil.copy2(deb, deb_target / deb.name)
+                copied.add(deb.name)
         if seed_iso.exists():
             seed_iso.unlink()
         run(
@@ -427,6 +439,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--google-gvnic-deb-dir", type=Path, default=DEFAULT_GOOGLE_GVNIC_DEB_DIR)
     parser.add_argument(
+        "--install-google-guest-agent",
+        action="store_true",
+        help="Install offline Google guest-agent and OS Login packages for private IAP/OS Login support.",
+    )
+    parser.add_argument("--google-guest-agent-deb-dir", type=Path, default=DEFAULT_GOOGLE_GUEST_AGENT_DEB_DIR)
+    parser.add_argument(
         "--allow-user-network",
         action="store_true",
         help="Explicitly enable QEMU user-mode networking for a provider-specific proof; local builds remain offline by default.",
@@ -462,6 +480,8 @@ def main(argv: list[str] | None = None) -> int:
         run_id=run_id,
         install_google_gvnic_modules=args.install_google_gvnic_modules,
         google_gvnic_deb_dir=resolve_repo_path(args.google_gvnic_deb_dir),
+        install_google_guest_agent=args.install_google_guest_agent,
+        google_guest_agent_deb_dir=resolve_repo_path(args.google_guest_agent_deb_dir),
     )
     build_log = boot_qemu(
         qemu=qemu["qemu"],
@@ -520,10 +540,14 @@ def main(argv: list[str] | None = None) -> int:
         "proof_overlay": str(proof_overlay),
         "image_root_build": build_result,
         "install_google_gvnic_modules": args.install_google_gvnic_modules,
+        "install_google_guest_agent": args.install_google_guest_agent,
         "allow_user_network": args.allow_user_network,
         "network_mode": "user" if args.allow_user_network else "user_restricted_no_outbound",
         "google_gvnic_deb_dir": str(resolve_repo_path(args.google_gvnic_deb_dir))
         if args.install_google_gvnic_modules
+        else None,
+        "google_guest_agent_deb_dir": str(resolve_repo_path(args.google_guest_agent_deb_dir))
+        if args.install_google_guest_agent
         else None,
         "payload_archive": str(payload_archive),
         "build_serial_log": str(build_log_path),
