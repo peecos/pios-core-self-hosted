@@ -59,7 +59,7 @@ def build_commands(
     boot_disk: str,
     core_disk: str,
     key_disk: str,
-    metadata_manifest: str,
+    user_data: str,
 ) -> dict[str, list[str]]:
     base = gcloud_base(project, account)
     archive_uri = f"gs://{bucket}/{Path(archive).name}"
@@ -98,7 +98,7 @@ def build_commands(
             f"--network-interface=network={network},subnet={subnet},no-address,nic-type=GVNIC",
             "--tags=pios-core-iap-ssh,pios-core-no-egress", "--no-service-account", "--no-scopes",
             "--shielded-secure-boot", "--shielded-vtpm", "--shielded-integrity-monitoring",
-            "--deletion-protection", f"--metadata-from-file=pios-self-hosted-manifest={metadata_manifest}",
+            "--deletion-protection", f"--metadata-from-file=user-data={user_data}",
             "--labels=pios_role=self_hosted_core,owner_scope=one_owner,environment=gcp1_data_empty",
         ],
     }
@@ -152,7 +152,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--boot-disk", default="pios-core-boot")
     parser.add_argument("--core-disk", default="pios-core-data")
     parser.add_argument("--key-disk", default="pios-core-keys")
-    parser.add_argument("--metadata-manifest", default="REQUIRES_SYNTHETIC_MANIFEST_FILE")
+    parser.add_argument("--user-data", default="REQUIRES_SYNTHETIC_CLOUD_INIT_USER_DATA")
     return parser
 
 
@@ -163,7 +163,7 @@ def main(argv: list[str] | None = None) -> int:
         project=args.project, account=args.account, bucket=args.bucket, image_name=args.image_name,
         instance_name=args.instance_name, zone=args.zone, machine_type=args.machine_type,
         network=args.network, subnet=args.subnet, boot_disk=args.boot_disk, core_disk=args.core_disk, key_disk=args.key_disk,
-        metadata_manifest=args.metadata_manifest,
+        user_data=args.user_data,
     )
     output_dir = resolve_repo_path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)

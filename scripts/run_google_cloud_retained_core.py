@@ -42,6 +42,27 @@ def require_data_empty_manifest(path: Path) -> None:
         raise ValueError(f"metadata manifest is not data-empty: {', '.join(unsafe)}")
 
 
+def write_gce_user_data(manifest_path: Path, output_dir: Path) -> Path:
+    manifest = load_json(manifest_path)
+    owner_slug = manifest["core_instance"]["owner_slug"]
+    health_path = f"/var/lib/pios-core/owners/{owner_slug}/core/system/bootstrap/health-check.json"
+    content = json.dumps(manifest, indent=2, sort_keys=True)
+    user_data = (
+        "#cloud-config\nwrite_files:\n  - path: /tmp/pios-self-hosted-manifest.json\n"
+        "    permissions: '0600'\n    content: |\n"
+        + "\n".join(f"      {line}" for line in content.splitlines())
+        + "\nruncmd:\n  - [bash, -lc, \"set -euo pipefail; "
+        "echo PIOS_GCP1_FIRST_BOOT_START | tee /dev/console; "
+        "/opt/pios-core/bin/pios-core-init --manifest /tmp/pios-self-hosted-manifest.json | tee /tmp/pios-core-init-result.json /dev/console; "
+        f"cat {health_path} | tee /tmp/pios-core-health-check.json /dev/console; "
+        "echo PIOS_GCP1_FIRST_BOOT_DONE | tee /dev/console\"]\n"
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path = output_dir / "gce-data-empty-user-data.yaml"
+    path.write_text(user_data)
+    return path
+
+
 def preview_or_run(*, artifact_manifest: Path, metadata_manifest: Path, output_dir: Path, confirm: bool, values: dict[str, str]) -> dict[str, Any]:
     artifact = load_json(artifact_manifest)
     require_artifact(artifact)
@@ -53,7 +74,8 @@ def preview_or_run(*, artifact_manifest: Path, metadata_manifest: Path, output_d
         archive = resolve_repo_path(archive)
     if not archive.is_file():
         raise ValueError(f"archive is missing: {archive}")
-    commands = build_commands(archive=str(archive), metadata_manifest=str(metadata_manifest), **values)
+    user_data = write_gce_user_data(metadata_manifest, output_dir)
+    commands = build_commands(archive=str(archive), user_data=str(user_data), **values)
     result: dict[str, Any] = {
         "schema_version": "pios_google_cloud_retained_core_execution_v1",
         "created_at": utc_now(), "project": values["project"],

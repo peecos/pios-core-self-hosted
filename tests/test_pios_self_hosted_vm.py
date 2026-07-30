@@ -216,7 +216,7 @@ class PiosSelfHostedVmTests(unittest.TestCase):
                 boot_disk="pios-core-boot",
                 core_disk="pios-core-data",
                 key_disk="pios-core-keys",
-                metadata_manifest="synthetic.json",
+                user_data="synthetic-user-data.yaml",
             )
             boot = plan["commands"]["boot_retained_core_after_explicit_confirmation"]
             self.assertEqual(plan["cloud_calls"], 0)
