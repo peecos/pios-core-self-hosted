@@ -25,6 +25,10 @@ architecture: arm64
 role: data-empty Core Template
 ```
 
+Its owner-facing reusable name is **PIOS Starter Disk Image**. The name denotes
+the neutral, data-empty artifact intended to let any new owner begin a fresh
+Core at Owner Bind; provider resource IDs remain versioned technical names.
+
 It has been locally packaged, extracted, checksum-verified, inspected for no
 backing file, and boot-proven with QEMU. A Google-compatible variant has also
 passed one owner-approved Google Cloud import, ARM64 VM boot, metadata-provided
@@ -35,7 +39,7 @@ AWS-native path.
 
 ## Neutral Golden Starter And Owner Bind
 
-The data-empty Core Template is a **Neutral Golden Starter**. It may contain
+The **PIOS Starter Disk Image** is a **Neutral Golden Starter**. It may contain
 reusable runtime capability, empty schemas, portability/health tooling, and
 provider guest integration, but it must contain no owner identity, keys,
 credentials, data, policy selection, or access principal.

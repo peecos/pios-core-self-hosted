@@ -67,7 +67,8 @@ self-hosted readiness.
 
 ## Golden VM Image Target
 
-The next self-hosted target is a data-empty golden VM image: a Core Template
+The next self-hosted target is a data-empty golden VM image: the **PIOS Starter
+Disk Image**, a Core Template
 that contains code, schemas, services, setup logic, and validation tools, but no
 owner data or hydrated Core Bundle.
 
@@ -81,7 +82,7 @@ Plan:
 
 ## Owner Bind Boundary
 
-The golden VM image is a **Neutral Golden Starter**. It can be made more
+The **PIOS Starter Disk Image** is a **Neutral Golden Starter**. It can be made more
 complete through reusable code, empty schemas, setup/health/recovery tooling,
 and provider integrations without becoming owner-specific.
 

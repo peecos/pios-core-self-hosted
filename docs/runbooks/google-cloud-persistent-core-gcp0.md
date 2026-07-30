@@ -155,7 +155,8 @@ as an independent owner Core without fresh identity and key initialization.
 
 ## Owner Bind Boundary
 
-The retained golden image is a **Neutral Golden Starter**: it can gain generic
+The retained golden image is the provider-specific implementation of the
+**PIOS Starter Disk Image**, a **Neutral Golden Starter**: it can gain generic
 runtime, empty schemas, health/recovery tooling, and provider support while it
 remains data-empty. **Owner Bind** is the explicit transition where a new VM
 becomes owner-specific. Only then may provisioning create/select owner
