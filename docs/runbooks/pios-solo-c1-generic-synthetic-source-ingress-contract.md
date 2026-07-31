@@ -68,6 +68,25 @@ python3 -m unittest tests/test_pios_synthetic_source_ingress.py
 python3 -m unittest discover -s tests
 ```
 
+## Canonical Harmless Golden Fixture
+
+`tests/fixtures/pios_synthetic_source_ingress_v1/` is the fixed local Python
+B1/B2/C1 fixture. It uses only a generated harmless original, generic
+synthetic tokens, and a fixed test clock. Its `golden-manifest.json` pins the
+exact B1 canonical UTF-8 JSON bytes for the input, candidates, envelope,
+accepted receipt, duplicate receipt, and negative vectors through SHA-256 and
+byte counts. `original.bin` is retained as an exact fixed byte stream.
+
+The readable checked-in JSON files end in one text-file LF, which is not part
+of the canonical value. The regression test parses each file and compares
+`canonical_json_bytes(...)` directly to its manifest integrity record. This
+prevents a platform newline convention from changing the protocol bytes.
+
+The fixture proves Python implementation determinism only. It is not a claim
+that a Swift/Corebox implementation produces byte-identical payloads,
+manifests, candidates, envelopes, or receipts. Cross-language byte-parity
+vectors require a separately reviewed C1 contract change.
+
 ## C1 Review Gaps Outside This Repository
 
 The generic Solo contract is ready for C1 review, but C1 is not yet a complete
