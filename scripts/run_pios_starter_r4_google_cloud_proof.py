@@ -495,6 +495,7 @@ def preview_or_run(
     executed: list[dict[str, Any]] = []
     serial: dict[str, Any] | None = None
     readback: dict[str, Any] | None = None
+    health_readback_command: dict[str, Any] | None = None
     cleanup_results: list[dict[str, Any]] = []
     cleanup_eligible = False
     status = "failed"
@@ -527,7 +528,13 @@ def preview_or_run(
         )
         if serial["status"] != "passed":
             raise R4ProofExecutionError("serial output did not prove a passed r4 first boot")
-        health_command = run_command(commands["iap_oslogin_health_readback"], check=True, timeout=timeout_seconds)
+        health_command = run_command(commands["iap_oslogin_health_readback"], check=False, timeout=timeout_seconds)
+        health_readback_command = command_result("iap_oslogin_health_readback", health_command)
+        if health_command.returncode != 0:
+            raise R4ProofExecutionError(
+                "IAP/OS Login health readback command failed: "
+                + (health_command.stderr or health_command.stdout or "no diagnostic output")[-1000:]
+            )
         readback = validate_iap_health_readback(health_command.stdout or "")
         status = "passed"
     except R4ProofPreflightError as exc:
@@ -544,10 +551,17 @@ def preview_or_run(
     result = {
         **common,
         "status": status,
-        "cloud_calls": len(executed) + (preflight.get("cloud_call_count", 0) if preflight else 0) + len(cleanup_results),
+        "cloud_calls": (
+            len(executed)
+            + (preflight.get("cloud_call_count", 0) if preflight else 0)
+            + (serial.get("attempts", 0) if serial else 0)
+            + (1 if health_readback_command else 0)
+            + len(cleanup_results)
+        ),
         "preflight": preflight,
         "executed": executed,
         "serial_proof": serial,
+        "iap_oslogin_health_command": health_readback_command,
         "iap_oslogin_health": readback,
         "cleanup": cleanup_results,
         "cleanup_status": (
