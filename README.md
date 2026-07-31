@@ -10,10 +10,12 @@ release is not yet published.
 
 Start here:
 
-1. Read `docs/install/owner-agent-handoff.md`.
-2. Review `docs/install/release-verification.md`.
-3. Check provider status in `docs/install/provider-readiness-matrix.md`.
-4. For local use, follow `docs/install/self-hosted-qemu-local-vm.md`.
+1. Read `docs/install/pios-starter-disk-image.md` for the neutral Starter and
+   Owner Bind boundary.
+2. Read `docs/install/owner-agent-handoff.md`.
+3. Review `docs/install/release-verification.md`.
+4. Check provider status in `docs/install/provider-readiness-matrix.md`.
+5. For local use, follow `docs/install/self-hosted-qemu-local-vm.md`.
 
 Boundaries:
 
