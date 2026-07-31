@@ -39,6 +39,27 @@ application networking.
    `self_hosted_core_health_check_v1` record.
 5. Keep proof logs, manifests, and checksums outside the image and Core root.
 
+For a second independent fresh-VM hygiene proof, run the packaged disk through
+the disposable local overlay workflow below. It verifies the release manifest,
+checksum, and absence of a QCOW2 backing file. Before Core initialization, the
+guest refuses to continue unless `/var/lib/pios-core` is absent or empty; this
+rules out a carried-over Core root, owner state, or prior synthetic-owner token.
+It then initializes a distinct synthetic owner with all services disabled and
+requires a passed five-zone health record.
+
+```bash
+python3 scripts/prove_pios_starter_disk_image_hygiene.py \
+  --release-manifest image-artifacts/pios-starter-disk-image-YYYYMMDD/pios-starter-disk-image-YYYYMMDD-release-manifest.json \
+  --output-dir image-artifacts/pios-starter-disk-image-hygiene/YYYYMMDD \
+  --run-id pios-starter-hygiene-YYYYMMDD
+```
+
+This is a local-only proof. It creates only a disposable QCOW2 overlay, EDK2
+vars copy, NoCloud seed, serial log, and result manifest outside the Starter
+image. QEMU networking remains restricted (`user,restrict=on`), and the
+workflow does not hydrate a bundle or enable the Core API, connectors,
+scheduler, or application networking.
+
 ## Provider Preparation
 
 The provider-specific import path may create only data-empty staging/import

@@ -6,6 +6,13 @@ import unittest
 from scripts import pios_self_hosted_vm as vm
 from scripts import pios_google_metadata_init as metadata_init
 from scripts.build_self_hosted_qemu_image_candidate import build_qemu_command
+from scripts.prove_pios_starter_disk_image_hygiene import (
+    HYGIENE_EMPTY_STATE_OK,
+    HYGIENE_PROOF_DONE,
+    HYGIENE_PROOF_START,
+    build_hygiene_user_data,
+    release_image_from_manifest,
+)
 from scripts.pios_local_synthetic_source import run_fixture_suite
 from scripts.plan_google_cloud_import_proof import build_plan
 from scripts.plan_google_cloud_retained_core import build_plan as build_retained_core_plan
@@ -151,6 +158,39 @@ class PiosSelfHostedVmTests(unittest.TestCase):
         )
         self.assertIn("user,id=net0", command)
         self.assertNotIn("user,restrict=on,id=net0", command)
+
+    def test_candidate_boot_helper_exposes_an_explicit_success_stop_marker(self) -> None:
+        import inspect
+
+        from scripts.build_self_hosted_qemu_image_candidate import boot_qemu
+
+        self.assertIn("stop_when_seen", inspect.signature(boot_qemu).parameters)
+
+    def test_starter_hygiene_seed_requires_empty_core_state_before_init(self) -> None:
+        user_data = build_hygiene_user_data(
+            owner_id="owner_synthetic_owner_b",
+            owner_slug="starter-hygiene-owner-b",
+            env_name="starter-hygiene",
+        )
+        self.assertIn(HYGIENE_PROOF_START, user_data)
+        self.assertIn(HYGIENE_EMPTY_STATE_OK, user_data)
+        self.assertIn(HYGIENE_PROOF_DONE, user_data)
+        self.assertIn("test ! -e /var/lib/pios-core", user_data)
+        self.assertIn("/opt/pios-core/bin/pios-core-init", user_data)
+        self.assertIn('"start_core_api": false', user_data)
+        self.assertIn('"start_connectors": false', user_data)
+        self.assertIn('"start_scheduler": false', user_data)
+        self.assertIn("starter-hygiene-owner-b", user_data)
+
+    def test_starter_hygiene_rejects_release_manifest_without_standalone_image(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            manifest_path = Path(directory) / "release-manifest.json"
+            manifest_path.write_text(json.dumps({
+                "schema_version": "self_hosted_qemu_image_release_manifest_v1",
+                "status": "passed",
+            }))
+            with self.assertRaisesRegex(ValueError, "standalone_image"):
+                release_image_from_manifest(json.loads(manifest_path.read_text()), manifest_path)
 
     def test_synthetic_source_fixture_loop_covers_required_outcomes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

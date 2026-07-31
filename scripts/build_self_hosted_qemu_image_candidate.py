@@ -365,6 +365,7 @@ def boot_qemu(
     timeout_seconds: int,
     live_log_path: Path | None = None,
     allow_user_network: bool = False,
+    stop_when_seen: str | None = None,
 ) -> str:
     shutil.copy2(vars_template, vars_fd)
     command = build_qemu_command(
@@ -405,6 +406,15 @@ def boot_qemu(
             reader.join(timeout=2)
             return "".join(output)
         recent = "".join(output[-200:])
+        if stop_when_seen and stop_when_seen in recent:
+            process.terminate()
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=10)
+            reader.join(timeout=2)
+            return "".join(output)
         if "reboot: Power down" in recent or "Reached target \x1b[0;1;39mpoweroff.target" in recent:
             process.terminate()
             try:

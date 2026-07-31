@@ -188,8 +188,8 @@ docs/runbooks/external-vm-provider-proof-plan.md
    - provider-specific import guidance.
 15. Use `scripts/validate_self_hosted_qemu_release_package.py` to validate the
    package after extraction.
-16. Boot the cleaned release candidate and rerun empty first boot plus repeatability
-   proof before publishing it as a golden image.
+16. Boot the cleaned release candidate and rerun empty first boot, repeatability,
+   and fresh-image hygiene proof before publishing it as a golden image.
 
 ## Not Yet Implemented
 
@@ -202,4 +202,5 @@ docs/runbooks/external-vm-provider-proof-plan.md
 - local immutability/backup policy;
 - self-hosted remediation/erasure mechanism;
 - service supervisor configuration;
-- repeat proof from the cleaned candidate image.
+- public release approval and publication after the cleaned candidate's repeat
+  and fresh-image hygiene proofs.
