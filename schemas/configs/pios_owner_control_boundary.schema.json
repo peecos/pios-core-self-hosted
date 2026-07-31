@@ -1,0 +1,91 @@
+{
+  "$id": "urn:pios:owner-control-boundary-config:v1",
+  "additionalProperties": false,
+  "properties": {
+    "authentication": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter_state": {
+          "const": "unconfigured"
+        }
+      },
+      "required": [
+        "adapter_state"
+      ],
+      "type": "object"
+    },
+    "owner_bind_state": {
+      "const": "missing"
+    },
+    "recovery": {
+      "additionalProperties": false,
+      "properties": {
+        "flow_state": {
+          "const": "unconfigured"
+        }
+      },
+      "required": [
+        "flow_state"
+      ],
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "pios_owner_control_boundary_config_v1"
+    },
+    "service": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "const": false
+        },
+        "listener_enabled": {
+          "const": false
+        }
+      },
+      "required": [
+        "enabled",
+        "listener_enabled"
+      ],
+      "type": "object"
+    },
+    "topology": {
+      "additionalProperties": false,
+      "properties": {
+        "private_core_public_ip": {
+          "const": false
+        },
+        "public_edge_deployed": {
+          "const": false
+        }
+      },
+      "required": [
+        "private_core_public_ip",
+        "public_edge_deployed"
+      ],
+      "type": "object"
+    },
+    "webauthn": {
+      "additionalProperties": false,
+      "properties": {
+        "capability_state": {
+          "const": "unconfigured"
+        }
+      },
+      "required": [
+        "capability_state"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "owner_bind_state",
+    "service",
+    "authentication",
+    "webauthn",
+    "recovery",
+    "topology"
+  ],
+  "title": "PIOS Owner Control Neutral Boundary Configuration",
+  "type": "object"
+}

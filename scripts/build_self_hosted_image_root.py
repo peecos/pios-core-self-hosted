@@ -24,6 +24,7 @@ INCLUDED_FILES = (
     "scripts/pios_generic_source_lifecycle.py",
     "scripts/pios_source_adapter_templates.py",
     "scripts/pios_projection_approval_primitives.py",
+    "scripts/pios_owner_control_boundary.py",
     "scripts/pios_google_metadata_init.py",
     "scripts/prove_self_hosted_core.py",
     "scripts/validate_core_bundle.py",
