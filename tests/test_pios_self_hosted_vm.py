@@ -32,6 +32,7 @@ from scripts.clean_pios_starter_disk_image_residue import (
     build_cleanup_user_data,
 )
 from scripts.finalize_pios_starter_disk_image_cleanup import validate_cleanup_log
+from scripts.validate_pios_starter_disk_image_evidence import validate_evidence_records
 from scripts.pios_local_synthetic_source import run_fixture_suite
 from scripts.plan_google_cloud_import_proof import build_plan
 from scripts.plan_google_cloud_retained_core import build_plan as build_retained_core_plan
@@ -303,6 +304,68 @@ class PiosSelfHostedVmTests(unittest.TestCase):
             markers = validate_cleanup_log(log_path)
             self.assertTrue(markers["cleanup_start_seen"])
             self.assertTrue(markers["cleanup_done_seen"])
+
+    def test_starter_evidence_validator_requires_matching_passed_proofs(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image = root / "starter.qcow2"
+            image.write_bytes(b"synthetic")
+            release_path = root / "release.json"
+            release = {
+                "schema_version": "self_hosted_qemu_image_release_manifest_v1",
+                "status": "passed",
+                "standalone_image": str(image),
+                "standalone_image_sha256": "digest",
+                "boot_proof": {"status": "passed"},
+                "residue_cleanup": {
+                    "markers": {"cleanup_start_seen": True, "cleanup_done_seen": True},
+                },
+            }
+            hygiene = {
+                "schema_version": "self_hosted_pios_starter_hygiene_proof_v1",
+                "status": "passed",
+                "release_manifest": str(release_path),
+                "release_image": {"image": str(image), "sha256": "digest"},
+                "proof": {
+                    "status": "passed",
+                    "markers": {
+                        "proof_start_seen": True,
+                        "empty_core_state_seen": True,
+                        "health_schema_seen": True,
+                        "health_passed_seen": True,
+                        "proof_done_seen": True,
+                    },
+                },
+            }
+            residue = {
+                "schema_version": "self_hosted_pios_starter_residue_inspection_v1",
+                "status": "passed",
+                "release_manifest": str(release_path),
+                "release_image": {"image": str(image), "sha256": "digest"},
+                "inspection": {
+                    "status": "passed",
+                    "markers": {
+                        "inspection_start_seen": True,
+                        "inspection_passed_seen": True,
+                        "inspection_failed_seen": False,
+                    },
+                },
+            }
+            summary = validate_evidence_records(
+                release_manifest=release,
+                release_manifest_path=release_path,
+                fresh_hygiene=hygiene,
+                residue_inspection=residue,
+            )
+            self.assertEqual(summary["release_image_sha256"], "digest")
+            residue["release_image"]["sha256"] = "different"
+            with self.assertRaisesRegex(ValueError, "checksum"):
+                validate_evidence_records(
+                    release_manifest=release,
+                    release_manifest_path=release_path,
+                    fresh_hygiene=hygiene,
+                    residue_inspection=residue,
+                )
 
     def test_synthetic_source_fixture_loop_covers_required_outcomes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

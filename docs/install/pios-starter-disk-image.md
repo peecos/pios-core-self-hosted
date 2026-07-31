@@ -110,6 +110,24 @@ python3 scripts/finalize_pios_starter_disk_image_cleanup.py \
 The finalizer refuses missing cleanup markers and rechecks the QCOW2 format and
 backing-file contract before it runs the synthetic health proof.
 
+## Validate Local Candidate Evidence
+
+Before bringing a local candidate to a separately approved signing or
+publication review, bind its package-health proof, fresh-VM hygiene proof, and
+residue inspection to the exact same QCOW2 and checksum:
+
+```bash
+python3 scripts/validate_pios_starter_disk_image_evidence.py \
+  --release-manifest image-artifacts/pios-starter-disk-image-YYYYMMDD/pios-starter-disk-image-YYYYMMDD-release-manifest.json \
+  --fresh-hygiene-result image-artifacts/pios-starter-disk-image-YYYYMMDD/fresh-hygiene/pios-starter-hygiene-YYYYMMDD-result.json \
+  --residue-inspection-result image-artifacts/pios-starter-disk-image-YYYYMMDD/residue-inspection/pios-starter-residue-YYYYMMDD-result.json \
+  --output image-artifacts/pios-starter-disk-image-YYYYMMDD/pios-starter-disk-image-YYYYMMDD-evidence-readiness.json
+```
+
+A passed result means only that the local image evidence is complete. It does
+not sign, publish, import, deploy, create an owner-specific Core, or change
+provider-support status.
+
 ## Provider Preparation
 
 The provider-specific import path may create only data-empty staging/import
