@@ -1,9 +1,8 @@
 # PIOS Solo GCP-2: Owner-Neutral Operations Plan
 
 Status: planning document; it authorizes no cloud mutation. The first O1
-read-only result is recorded in the VM lane and is partially passed because the
-technical/private baseline is current but a dated provider price estimate is
-still missing.
+read-only result is recorded in the VM lane and is passed for retention
+planning with a dated, explicitly bounded provider-rate estimate.
 
 ## Purpose
 
@@ -58,11 +57,12 @@ Balanced disks, Shielded/no-public-IP/no-service-account posture, IAP-only
 firewall/no-egress rules, current image/snapshot inventory, and a passed
 private IAP/OS Login health read. It did not mutate any resource.
 
-The check is partial rather than complete because it did not obtain a dated
-provider price estimate for the exact retained inventory. The USD 200 budget
-alert posture was verified by the final r4 proof earlier the same day, but a
-budget alert is not a current estimate or a spend cap. Do not advance to O2,
-O3, or O4 until that estimate and a specific owner confirmation are recorded.
+The check includes a dated provider-rate estimate for continuous C4A runtime,
+160 GiB Hyperdisk Balanced capacity, and configured excess IOPS/throughput,
+plus a 10% residual-storage/rounding contingency. The USD 200 budget alert
+posture was verified by the final r4 proof earlier the same day, but remains an
+alert threshold rather than a spend cap. Do not advance to O2, O3, or O4
+without a specific owner confirmation.
 
 ### O1: Read-Only Baseline Review
 
