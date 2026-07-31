@@ -70,6 +70,7 @@ class R4GoogleCloudProofTests(unittest.TestCase):
         self.assertIn("--type=hyperdisk-balanced", commands["create_core_disk"])
         self.assertIn("--machine-type=c4a-standard-2", instance)
         self.assertIn("--network-interface=network=pios-core-vpc,subnet=pios-core-en1,no-address,nic-type=GVNIC", instance)
+        self.assertIn("--tags=pios-core-iap-ssh,pios-core-no-egress", instance)
         self.assertIn("--shielded-secure-boot", instance)
         self.assertIn("--shielded-vtpm", instance)
         self.assertIn("--shielded-integrity-monitoring", instance)

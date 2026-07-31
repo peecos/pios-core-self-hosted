@@ -56,6 +56,8 @@ The runner’s generated commands use:
 - imported image guest OS features `GVNIC,UEFI_COMPATIBLE`;
 - Shielded Secure Boot, vTPM, and integrity monitoring;
 - existing private VPC/subnet with gVNIC and no external IP;
+- the established `pios-core-iap-ssh,pios-core-no-egress` network tags, so the
+  private IAP TCP/22 firewall path applies while no-egress posture is retained;
 - no service account and no scopes;
 - cloud-init `user-data`, not a custom metadata-manifest key; and
 - a generated synthetic first-boot manifest with Core API, connector,

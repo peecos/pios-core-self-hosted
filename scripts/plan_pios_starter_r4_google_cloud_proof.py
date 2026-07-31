@@ -285,6 +285,7 @@ def build_execution_commands(
             *base, "compute", "instances", "create", names["instance"], f"--zone={DEFAULT_ZONE}",
             f"--machine-type={DEFAULT_MACHINE_TYPE}",
             f"--network-interface=network={network},subnet={subnet},no-address,nic-type=GVNIC",
+            "--tags=pios-core-iap-ssh,pios-core-no-egress",
             f"--disk=name={names['boot_disk']},boot=yes,auto-delete=no",
             f"--disk=name={names['core_disk']},boot=no,auto-delete=no",
             f"--disk=name={names['key_disk']},boot=no,auto-delete=no",
