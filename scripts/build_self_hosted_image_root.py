@@ -22,6 +22,7 @@ INCLUDED_FILES = (
     "scripts/pios_core_init.py",
     "scripts/pios_canonical_source_primitives.py",
     "scripts/pios_generic_source_lifecycle.py",
+    "scripts/pios_source_adapter_templates.py",
     "scripts/pios_google_metadata_init.py",
     "scripts/prove_self_hosted_core.py",
     "scripts/validate_core_bundle.py",
