@@ -218,6 +218,9 @@ class PiosSelfHostedVmTests(unittest.TestCase):
                     google_guest_agent_deb_dir=guest_agent_dir,
             )
             user_data = make_seed.call_args.kwargs["user_data"]
+            self.assertIn("test ! -e /usr/sbin/policy-rc.d", user_data)
+            self.assertIn("exit 101", user_data)
+            self.assertIn("rm -f /usr/sbin/policy-rc.d; systemctl daemon-reload || true", user_data)
             self.assertIn("umount /mnt/pios-seed || true; rmdir /mnt/pios-seed || true", user_data)
 
     def test_candidate_proof_seed_runs_core_init_in_early_boothook(self) -> None:

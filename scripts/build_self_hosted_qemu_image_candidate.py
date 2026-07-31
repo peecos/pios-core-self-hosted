@@ -133,7 +133,11 @@ def write_candidate_build_seed(
             "mkdir -p /mnt/pios-seed; "
             "mount -o ro LABEL=cidata /mnt/pios-seed || mount -o ro /dev/disk/by-label/cidata /mnt/pios-seed; "
             "ls -l /mnt/pios-seed/offline-debs | tee /dev/console; "
+            "test ! -e /usr/sbin/policy-rc.d; "
+            "printf '%s\\n' '#!/bin/sh' 'exit 101' > /usr/sbin/policy-rc.d; "
+            "chmod 0755 /usr/sbin/policy-rc.d; "
             "dpkg -i /mnt/pios-seed/offline-debs/*.deb; "
+            "rm -f /usr/sbin/policy-rc.d; systemctl daemon-reload || true; "
             + ("printf '%s\\n' gve > /etc/modules-load.d/pios-google-gvnic.conf; modinfo gve | tee /dev/console || true; modprobe gve || true; " if install_google_gvnic_modules else "")
             + "umount /mnt/pios-seed || true; rmdir /mnt/pios-seed || true; "
         )
