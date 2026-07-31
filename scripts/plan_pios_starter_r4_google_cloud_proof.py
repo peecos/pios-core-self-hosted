@@ -45,6 +45,7 @@ DEFAULT_NETWORK = "pios-core-vpc"
 DEFAULT_SUBNET = "pios-core-en1"
 DEFAULT_PROJECT = "pios-core-solo"
 DEFAULT_ACCOUNT = "valto@prifina.com"
+DEFAULT_BUDGET_DISPLAY_NAME = "<owner-approved-r4-proof-budget-name>"
 DISK_TYPE = "hyperdisk-balanced"
 DISK_SPECS = {"boot": "40GB", "core": "100GB", "keys": "20GB"}
 IAP_TCP_SOURCE_RANGE = "35.235.240.0/20"
@@ -253,7 +254,7 @@ def build_execution_commands(
         "verify_network": [*base, "compute", "networks", "describe", network, "--format=json"],
         "verify_subnet": [*base, "compute", "networks", "subnets", "describe", subnet, f"--region={DEFAULT_REGION}", "--format=json"],
         "verify_iap_firewall": [*base, "compute", "firewall-rules", "list", f"--filter=network={network} AND direction=INGRESS", "--format=json"],
-        "verify_permissions": [
+        "verify_iam_policy_visibility": [
             *base, "projects", "get-iam-policy", project, "--format=json",
         ],
         "check_bucket_absent": [*base, "storage", "buckets", "describe", f"gs://{names['bucket']}"],
@@ -325,6 +326,7 @@ def build_plan(
     subnet: str,
     monthly_cost_ceiling_usd: float,
     proof_cost_ceiling_usd: float,
+    budget_display_name: str,
 ) -> dict[str, Any]:
     source = validate_r4_release(
         release_manifest_path=release_manifest_path,
@@ -376,6 +378,7 @@ def build_plan(
         "synthetic_first_boot_manifest": manifest,
         "budget_cost_limits": {
             "billing_account": billing_account,
+            "budget_display_name": budget_display_name,
             "monthly_cost_ceiling_usd": monthly_cost_ceiling_usd,
             "proof_cost_ceiling_usd": proof_cost_ceiling_usd,
             "owner_authorization_required_before_cloud_call": True,
@@ -385,8 +388,20 @@ def build_plan(
             "quota_and_machine_availability": True,
             "temporary_name_collisions": True,
             "private_vpc_subnet_and_iap_firewall": {"source_range": IAP_TCP_SOURCE_RANGE},
-            "billing_budget_and_cost_limits": True,
-            "permissions": True,
+            "billing_budget_and_cost_limits": {
+                "exact_project_billing_account_link": True,
+                "named_project_scoped_usd_budget": budget_display_name,
+                "required_thresholds": [0.5, 0.8, 1.0],
+                "enabled_alert_delivery": True,
+            },
+            "permissions": "separately verified effective permission record; IAM policy visibility is supporting evidence only",
+        },
+        "operator_permission_record_requirement": {
+            "schema_version": "pios_starter_r4_gcp_operator_permission_record_v1",
+            "must_bind_project_and_account": True,
+            "must_confirm_effective_create_delete_permissions": True,
+            "must_confirm_iap_tunnel_and_os_login": True,
+            "must_be_unexpired_at_execution": True,
         },
         "requires_confirmation": CONFIRMATION_FLAG,
         "commands": command_preview(commands),
@@ -409,6 +424,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--project", default=DEFAULT_PROJECT)
     parser.add_argument("--account", default=DEFAULT_ACCOUNT)
     parser.add_argument("--billing-account", default="<owner-approved-billing-account>")
+    parser.add_argument("--budget-display-name", default=DEFAULT_BUDGET_DISPLAY_NAME)
     parser.add_argument("--network", default=DEFAULT_NETWORK)
     parser.add_argument("--subnet", default=DEFAULT_SUBNET)
     parser.add_argument("--monthly-cost-ceiling-usd", type=float, default=0.0)
@@ -431,6 +447,7 @@ def main(argv: list[str] | None = None) -> int:
         subnet=args.subnet,
         monthly_cost_ceiling_usd=args.monthly_cost_ceiling_usd,
         proof_cost_ceiling_usd=args.proof_cost_ceiling_usd,
+        budget_display_name=args.budget_display_name,
     )
     output = output_dir / f"{args.proof_id}-plan.json"
     output.write_text(json.dumps(plan, indent=2, sort_keys=True) + "\n")

@@ -2,6 +2,7 @@ import hashlib
 import json
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -27,6 +28,34 @@ class R4GoogleCloudProofTests(unittest.TestCase):
         }
         path = root / "artifact.json"
         path.write_text(json.dumps(manifest))
+        return path
+
+    def permission_record(
+        self,
+        root: Path,
+        *,
+        project: str = "pios-core-solo",
+        account: str = "operator@example.invalid",
+        permissions: set[str] | None = None,
+        iap_oslogin: dict[str, bool] | None = None,
+        expires_at: str = "2035-01-01T00:00:00Z",
+    ) -> Path:
+        record = {
+            "schema_version": runner.OPERATOR_PERMISSION_RECORD_SCHEMA,
+            "status": "passed",
+            "project": project,
+            "account": account,
+            "verified_at": "2026-01-01T00:00:00Z",
+            "expires_at": expires_at,
+            "effective_permissions": sorted(permissions or runner.REQUIRED_PERMISSIONS),
+            "iap_oslogin": iap_oslogin or {"iap_tunnel_verified": True, "os_login_verified": True},
+            "verification": {
+                "method": "separate owner-approved effective-permission verification",
+                "evidence_reference": "Storage-wiki/Storage/Other/pios-core/self-hosted-vm/example.json",
+            },
+        }
+        path = root / "operator-permission-record.json"
+        path.write_text(json.dumps(record))
         return path
 
     def test_temporary_names_are_isolated_and_never_persistent(self) -> None:
@@ -90,6 +119,8 @@ class R4GoogleCloudProofTests(unittest.TestCase):
                     project="pios-core-solo",
                     account="operator@example.invalid",
                     billing_account="<owner-approved-billing-account>",
+                    budget_display_name="<owner-approved-r4-proof-budget-name>",
+                    operator_permission_record_path=None,
                     network="pios-core-vpc",
                     subnet="pios-core-en1",
                     monthly_cost_ceiling_usd=0,
@@ -116,6 +147,8 @@ class R4GoogleCloudProofTests(unittest.TestCase):
                         project="pios-core-solo",
                         account="operator@example.invalid",
                         billing_account="<owner-approved-billing-account>",
+                        budget_display_name="<owner-approved-r4-proof-budget-name>",
+                        operator_permission_record_path=None,
                         network="pios-core-vpc",
                         subnet="pios-core-en1",
                         monthly_cost_ceiling_usd=0,
@@ -143,10 +176,14 @@ class R4GoogleCloudProofTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             artifact = self.artifact_manifest(root, "r4-20260731-review-a1")
+            record = self.permission_record(root)
             cleanup = [{"step": "delete_instance", "returncode": 0, "stdout": "", "stderr": ""}]
-            with patch("scripts.run_pios_starter_r4_google_cloud_proof.run_preflight", side_effect=runner.R4ProofExecutionError("quota blocked")), patch(
-                "scripts.run_pios_starter_r4_google_cloud_proof.cleanup", return_value=cleanup
-            ):
+            with patch(
+                "scripts.run_pios_starter_r4_google_cloud_proof.run_preflight", return_value={"cloud_call_count": 16}
+            ), patch(
+                "scripts.run_pios_starter_r4_google_cloud_proof.run_command",
+                side_effect=runner.R4ProofExecutionError("quota blocked"),
+            ), patch("scripts.run_pios_starter_r4_google_cloud_proof.cleanup", return_value=cleanup):
                 result = runner.preview_or_run(
                     artifact_manifest_path=artifact,
                     output_dir=root / "output",
@@ -154,6 +191,8 @@ class R4GoogleCloudProofTests(unittest.TestCase):
                     project="pios-core-solo",
                     account="operator@example.invalid",
                     billing_account="000000-000000-000000",
+                    budget_display_name="PIOS r4 proof ceiling",
+                    operator_permission_record_path=record,
                     network="pios-core-vpc",
                     subnet="pios-core-en1",
                     monthly_cost_ceiling_usd=200,
@@ -166,6 +205,35 @@ class R4GoogleCloudProofTests(unittest.TestCase):
             self.assertIn("quota blocked", result["failure"])
             self.assertEqual(result["cleanup_status"], "complete")
             self.assertTrue((root / "output/r4-gcp-proof-result.json").is_file())
+
+    def test_early_preflight_failure_does_not_delete_unverified_names(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            artifact = self.artifact_manifest(root, "r4-20260731-review-a1")
+            record = self.permission_record(root)
+            with patch(
+                "scripts.run_pios_starter_r4_google_cloud_proof.run_preflight",
+                side_effect=runner.R4ProofExecutionError("billing blocked"),
+            ), patch("scripts.run_pios_starter_r4_google_cloud_proof.cleanup", side_effect=AssertionError):
+                result = runner.preview_or_run(
+                    artifact_manifest_path=artifact,
+                    output_dir=root / "output",
+                    proof_id="r4-20260731-review-a1",
+                    project="pios-core-solo",
+                    account="operator@example.invalid",
+                    billing_account="000000-000000-000000",
+                    budget_display_name="PIOS r4 proof ceiling",
+                    operator_permission_record_path=record,
+                    network="pios-core-vpc",
+                    subnet="pios-core-en1",
+                    monthly_cost_ceiling_usd=200,
+                    proof_cost_ceiling_usd=10,
+                    confirm=True,
+                    timeout_seconds=1,
+                    poll_seconds=1,
+                )
+            self.assertEqual(result["cleanup_status"], "not_required_preflight_failed")
+            self.assertIn("billing blocked", result["failure"])
 
     def test_serial_markers_require_five_zone_health_success(self) -> None:
         passed = (
@@ -184,6 +252,123 @@ class R4GoogleCloudProofTests(unittest.TestCase):
             artifact.write_text(json.dumps(value))
             with self.assertRaises(runner.R4ProofExecutionError):
                 runner.load_r4_artifact(artifact)
+
+    def test_operator_permission_record_requires_effective_permissions_iap_oslogin_and_expiry(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            record = self.permission_record(root)
+            validated = runner.validate_operator_permission_record(
+                path=record,
+                project="pios-core-solo",
+                account="operator@example.invalid",
+                now=datetime(2026, 7, 31, tzinfo=timezone.utc),
+            )
+            self.assertEqual(validated["status"], "passed")
+            self.assertEqual(set(validated["effective_permissions"]), runner.REQUIRED_PERMISSIONS)
+
+            denied = self.permission_record(root, permissions=set(runner.REQUIRED_PERMISSIONS) - {"compute.disks.delete"})
+            with self.assertRaisesRegex(runner.R4ProofExecutionError, "lacks required effective permissions"):
+                runner.validate_operator_permission_record(
+                    path=denied,
+                    project="pios-core-solo",
+                    account="operator@example.invalid",
+                    now=datetime(2026, 7, 31, tzinfo=timezone.utc),
+                )
+            no_iap = self.permission_record(root, iap_oslogin={"iap_tunnel_verified": False, "os_login_verified": True})
+            with self.assertRaisesRegex(runner.R4ProofExecutionError, "IAP tunnel and OS Login"):
+                runner.validate_operator_permission_record(
+                    path=no_iap,
+                    project="pios-core-solo",
+                    account="operator@example.invalid",
+                    now=datetime(2026, 7, 31, tzinfo=timezone.utc),
+                )
+            expired = self.permission_record(root, expires_at="2026-07-30T00:00:00Z")
+            with self.assertRaisesRegex(runner.R4ProofExecutionError, "expired"):
+                runner.validate_operator_permission_record(
+                    path=expired,
+                    project="pios-core-solo",
+                    account="operator@example.invalid",
+                    now=datetime(2026, 7, 31, tzinfo=timezone.utc),
+                )
+
+    def test_billing_linkage_and_budget_posture_are_parsed_and_fail_closed(self) -> None:
+        active = runner.validate_active_account(
+            [{"account": "operator@example.invalid", "status": "ACTIVE"}], account="operator@example.invalid"
+        )
+        self.assertEqual(active["status"], "ACTIVE")
+        project = runner.validate_project_identity(
+            {"projectId": "pios-core-solo", "projectNumber": "123456789012", "lifecycleState": "ACTIVE"},
+            project="pios-core-solo",
+        )
+        billing = runner.validate_billing_linkage(
+            {"billingAccountName": "billingAccounts/000000-000000-000000"},
+            billing_account="000000-000000-000000",
+        )
+        self.assertTrue(billing["billing_enabled"])
+        budget = {
+            "displayName": "PIOS r4 proof ceiling",
+            "budgetFilter": {"projects": [f"projects/{project['project_number']}"]},
+            "amount": {"specifiedAmount": {"currencyCode": "USD", "units": "200", "nanos": 0}},
+            "thresholdRules": [
+                {"thresholdPercent": 0.5},
+                {"thresholdPercent": "0.8"},
+                {"thresholdPercent": 1.0},
+            ],
+            "allUpdatesRule": {"disableDefaultIamRecipients": False},
+        }
+        posture = runner.validate_budget_posture(
+            [budget],
+            project="pios-core-solo",
+            project_number=project["project_number"],
+            budget_display_name="PIOS r4 proof ceiling",
+            monthly_cost_ceiling_usd=200,
+        )
+        self.assertEqual(posture["amount_usd"], "200")
+        with self.assertRaisesRegex(runner.R4ProofExecutionError, "not linked"):
+            runner.validate_billing_linkage(
+                {"billingAccountName": "billingAccounts/999999-999999-999999"},
+                billing_account="000000-000000-000000",
+            )
+        with self.assertRaisesRegex(runner.R4ProofExecutionError, "budget is absent"):
+            runner.validate_budget_posture(
+                [],
+                project="pios-core-solo",
+                project_number=project["project_number"],
+                budget_display_name="PIOS r4 proof ceiling",
+                monthly_cost_ceiling_usd=200,
+            )
+        with self.assertRaisesRegex(runner.R4ProofExecutionError, "threshold"):
+            runner.validate_budget_posture(
+                [{**budget, "thresholdRules": [{"thresholdPercent": 1.0}]}],
+                project="pios-core-solo",
+                project_number=project["project_number"],
+                budget_display_name="PIOS r4 proof ceiling",
+                monthly_cost_ceiling_usd=200,
+            )
+
+    def test_confirmed_execution_requires_a_separately_verified_permission_record_before_cloud_call(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            artifact = self.artifact_manifest(root, "r4-20260731-review-a1")
+            with patch("scripts.run_pios_starter_r4_google_cloud_proof.run_command", side_effect=AssertionError):
+                with self.assertRaisesRegex(runner.R4ProofExecutionError, "requires an operator permission record"):
+                    runner.preview_or_run(
+                        artifact_manifest_path=artifact,
+                        output_dir=root / "output",
+                        proof_id="r4-20260731-review-a1",
+                        project="pios-core-solo",
+                        account="operator@example.invalid",
+                        billing_account="000000-000000-000000",
+                        budget_display_name="PIOS r4 proof ceiling",
+                        operator_permission_record_path=None,
+                        network="pios-core-vpc",
+                        subnet="pios-core-en1",
+                        monthly_cost_ceiling_usd=200,
+                        proof_cost_ceiling_usd=10,
+                        confirm=True,
+                        timeout_seconds=1,
+                        poll_seconds=1,
+                    )
 
 
 if __name__ == "__main__":

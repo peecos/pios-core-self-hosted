@@ -72,19 +72,38 @@ confirmation flag:
 --confirm-r4-gcp-proof-execution
 ```
 
-Execution also requires a non-preview unique proof ID, a named billing account,
-positive owner-approved monthly and proof cost ceilings, refreshed
-authentication, and successful preflight. Preflight checks exact project and
-account, billing/budget visibility, C4A availability and regional quota,
-private VPC/subnet, IAP TCP/22 firewall readiness, project IAM-policy
-visibility plus a recorded required create/delete/read permission set, and
+Execution also requires a non-preview unique proof ID, a named billing account
+and budget, positive owner-approved monthly and proof cost ceilings, refreshed
+authentication, a separately verified operator-permission record, and
+successful preflight. The runner does **not** treat readable IAM policy as
+evidence of effective access: inherited, conditional, group, and custom-role
+permissions can differ from visible project bindings.
+
+The operator record must conform to
+`schemas/manifests/pios_starter_r4_gcp_operator_permission_record.schema.json`,
+bind the exact project and gcloud account, be unexpired, identify independent
+verification evidence, and prove the effective create/delete/read permissions
+for the temporary bucket, object, image, disks, and VM, plus IAP tunnel and OS
+Login access. A missing, mismatched, expired, or incomplete record blocks
+execution before any cloud command.
+
+Preflight then parses—not merely lists—the active account, exact project,
+project-to-billing-account linkage, and named budget. The budget must scope to
+the exact project (project ID or number), use USD, have a positive amount no
+greater than the approved monthly ceiling, contain 50%, 80%, and 100% threshold
+alerts, and have an enabled alert-delivery path. It also checks C4A availability
+and regional quota, private VPC/subnet, IAP TCP/22 firewall readiness,
+IAM-policy visibility as supporting owner-review evidence only, and
 temporary-resource name absence.
 
 After boot, a future execution requires both serial markers and IAP/OS Login
 readback of a passed five-zone health JSON. Cleanup always attempts deletion of
 the temporary VM, three disks, image, archive object, and staging bucket—even
-if preflight, creation, boot, serial evidence, or readback fails. Its result
-records failure and cleanup evidence rather than silently stopping.
+if creation, boot, serial evidence, or readback fails. If preflight fails
+before all temporary names have been proved absent, no temporary resource can
+have been created and the runner deliberately makes no guessed-name deletion
+attempt; it records `not_required_preflight_failed` instead. Its result records
+failure and cleanup evidence rather than silently stopping.
 
 ## Local Validation
 
@@ -104,6 +123,11 @@ python3 scripts/run_pios_starter_r4_google_cloud_proof.py \
 ```
 
 The last command must report `preview_only` and `cloud_calls: 0`.
+
+For a later, separately authorized execution, the owner must supply the exact
+budget display name and an independently produced permission record with
+`--operator-permission-record`. This runbook intentionally provides no command
+that creates a passed record or performs a cloud proof.
 
 ## Boundary
 
