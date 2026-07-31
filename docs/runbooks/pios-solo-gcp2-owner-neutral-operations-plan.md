@@ -84,6 +84,22 @@ five-zone health record.
 **Exit evidence:** no public IP, no new identity/data/service, and health
 returns to the same safe-disabled state.
 
+### O2 Checkpoint - 2026-07-31
+
+The owner authorized exactly one reset of retained VM `pios-core-solo` in
+`europe-north1-a`. Pre-reset IAP/OS Login read a passed five-zone health record
+and guest boot time `2026-07-30 22:10:55`. The reset returned successfully.
+Post-reset inspection confirmed the same private IP, C4A shape, three retained
+NVME disks, no service account, Shielded/deletion settings, and IAP/no-egress
+tags. IAP/OS Login then read the same passed health record from guest boot time
+`2026-07-31 20:36:21`.
+
+No stop condition fired; no rollback, retry, configuration change, or further
+cloud operation occurred. Compute Engine's `lastStartTimestamp` did not change
+for `instances reset`, so the guest boot-time read is the restart evidence.
+The detailed evidence is retained in the VM lane. O3 remains a separate owner
+decision.
+
 ### O3: Recovery Reconfirmation
 
 Review the existing recovery snapshots and schedule any new snapshot or
