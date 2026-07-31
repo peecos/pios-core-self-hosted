@@ -60,6 +60,56 @@ image. QEMU networking remains restricted (`user,restrict=on`), and the
 workflow does not hydrate a bundle or enable the Core API, connectors,
 scheduler, or application networking.
 
+For a deeper package-residue check that does not initialize a Core, run:
+
+```bash
+python3 scripts/inspect_pios_starter_disk_image_residue.py \
+  --release-manifest image-artifacts/pios-starter-disk-image-YYYYMMDD/pios-starter-disk-image-YYYYMMDD-release-manifest.json \
+  --output-dir image-artifacts/pios-starter-disk-image-residue-inspection/YYYYMMDD \
+  --run-id pios-starter-residue-YYYYMMDD
+```
+
+The inspection validates the same standalone/checksum contract, requires an
+empty Core state path, rejects known temporary build and proof paths, and
+searches persistent Core, cloud-init, log, configuration, home, and temporary
+paths for the prior synthetic-owner token recorded by the source candidate.
+The token is supplied to the guest in encoded form so the inspection seed does
+not create the text it is checking for. It does not run `pios-core-init`.
+
+If this gate finds only the known empty `/mnt/pios-seed` temporary mount
+directory from an older offline-package build, create a replacement package
+locally rather than modifying the source image. The cleanup command removes
+only that empty directory on a disposable overlay, flattens a new standalone
+QCOW2, then runs the synthetic five-zone boot proof:
+
+```bash
+python3 scripts/clean_pios_starter_disk_image_residue.py \
+  --release-manifest image-artifacts/pios-starter-disk-image-YYYYMMDD/pios-starter-disk-image-YYYYMMDD-release-manifest.json \
+  --output-dir image-artifacts/pios-starter-disk-image-clean/YYYYMMDD \
+  --run-id pios-starter-disk-image-YYYYMMDD-r2
+```
+
+Run the fresh-image hygiene proof and package-residue inspection again against
+that replacement manifest. Any other residue requires a reviewed rebuild from
+the fixed source builder; do not use this narrow cleanup tool for broader
+changes.
+
+If a local runner stops after the cleanup serial log has recorded both cleanup
+markers and the standalone QCOW2 exists, resume only the synthetic health proof
+and manifest creation with:
+
+```bash
+python3 scripts/finalize_pios_starter_disk_image_cleanup.py \
+  --source-release-manifest image-artifacts/pios-starter-disk-image-YYYYMMDD/pios-starter-disk-image-YYYYMMDD-release-manifest.json \
+  --cleaned-image image-artifacts/pios-starter-disk-image-clean/YYYYMMDD/pios-starter-disk-image-YYYYMMDD-r2.qcow2 \
+  --cleanup-serial-log image-artifacts/pios-starter-disk-image-clean/YYYYMMDD/pios-starter-disk-image-YYYYMMDD-r2-cleanup-serial.log \
+  --output-dir image-artifacts/pios-starter-disk-image-clean/YYYYMMDD \
+  --run-id pios-starter-disk-image-YYYYMMDD-r2
+```
+
+The finalizer refuses missing cleanup markers and rechecks the QCOW2 format and
+backing-file contract before it runs the synthetic health proof.
+
 ## Provider Preparation
 
 The provider-specific import path may create only data-empty staging/import

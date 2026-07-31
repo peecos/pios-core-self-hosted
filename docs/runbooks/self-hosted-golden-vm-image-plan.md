@@ -77,8 +77,10 @@ Before calling an image "golden," validate:
 1. Image hygiene:
    - no owner data;
   - no owner-specific identifiers;
-   - no AWS identifiers;
+  - no AWS identifiers;
    - no credentials or generated keys.
+   - packaged-disk residue inspection rejects known temporary build/proof
+     files and the source candidate's synthetic-owner token.
 2. Empty first boot:
    - first-boot setup succeeds from a clean manifest;
    - five zones exist;
@@ -119,6 +121,7 @@ The current proof foundation includes:
 - direct QEMU boot proof;
 - QEMU repeatability proof;
 - QEMU image-candidate and standalone-image proof;
+- packaged-disk residue inspection and bounded replacement-package proof;
 - release package extraction and boot proof;
 - development signing proof;
 - production signing proof for `v0.1.0-rc1`;
@@ -196,7 +199,6 @@ docs/runbooks/external-vm-provider-proof-plan.md
 - production peecos release-signing key creation/publication;
 - owner-facing local-machine VM wrapper/UX beyond the proof-level setup path;
 - provider repeatability tests and non-Google provider import tests;
-- deeper disk-image hygiene/inspection gate;
 - hardened local key hierarchy;
 - local protected-ingestion enforcement;
 - local immutability/backup policy;

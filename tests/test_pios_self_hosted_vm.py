@@ -2,10 +2,15 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from scripts import pios_self_hosted_vm as vm
 from scripts import pios_google_metadata_init as metadata_init
 from scripts.build_self_hosted_qemu_image_candidate import build_qemu_command
+from scripts.build_self_hosted_qemu_image_candidate import (
+    write_candidate_build_seed,
+    write_candidate_proof_seed,
+)
 from scripts.prove_pios_starter_disk_image_hygiene import (
     HYGIENE_EMPTY_STATE_OK,
     HYGIENE_PROOF_DONE,
@@ -13,6 +18,20 @@ from scripts.prove_pios_starter_disk_image_hygiene import (
     build_hygiene_user_data,
     release_image_from_manifest,
 )
+from scripts.inspect_pios_starter_disk_image_residue import (
+    RESIDUE_INSPECTION_PASSED,
+    SEARCH_ROOTS,
+    TEMPORARY_RESIDUE_PATHS,
+    build_residue_inspection_user_data,
+    derive_forbidden_token,
+)
+from scripts.clean_pios_starter_disk_image_residue import (
+    CLEANUP_DONE,
+    CLEANUP_START,
+    TEMPORARY_MOUNT_DIRECTORY,
+    build_cleanup_user_data,
+)
+from scripts.finalize_pios_starter_disk_image_cleanup import validate_cleanup_log
 from scripts.pios_local_synthetic_source import run_fixture_suite
 from scripts.plan_google_cloud_import_proof import build_plan
 from scripts.plan_google_cloud_retained_core import build_plan as build_retained_core_plan
@@ -166,6 +185,56 @@ class PiosSelfHostedVmTests(unittest.TestCase):
 
         self.assertIn("stop_when_seen", inspect.signature(boot_qemu).parameters)
 
+    def test_candidate_builder_removes_temporary_offline_seed_mount_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payload = root / "payload.tar.gz"
+            payload.write_bytes(b"synthetic payload")
+            gvnic_dir = root / "gvnic"
+            guest_agent_dir = root / "guest-agent"
+            gvnic_dir.mkdir()
+            guest_agent_dir.mkdir()
+            (gvnic_dir / "gvnic.deb").write_bytes(b"synthetic")
+            (guest_agent_dir / "guest-agent.deb").write_bytes(b"synthetic")
+            seed_iso = root / "seed.iso"
+
+            def fake_seed(*, seed_iso: Path, **_: object) -> None:
+                seed_iso.write_bytes(b"synthetic seed")
+
+            with patch(
+                "scripts.build_self_hosted_qemu_image_candidate.make_seed_iso",
+                side_effect=fake_seed,
+            ) as make_seed, patch("scripts.build_self_hosted_qemu_image_candidate.run"):
+                write_candidate_build_seed(
+                    seed_dir=root / "seed",
+                    seed_iso=seed_iso,
+                    payload_archive=payload,
+                    run_id="synthetic",
+                    install_google_gvnic_modules=True,
+                    google_gvnic_deb_dir=gvnic_dir,
+                    install_google_guest_agent=True,
+                    google_guest_agent_deb_dir=guest_agent_dir,
+            )
+            user_data = make_seed.call_args.kwargs["user_data"]
+            self.assertIn("umount /mnt/pios-seed || true; rmdir /mnt/pios-seed || true", user_data)
+
+    def test_candidate_proof_seed_runs_core_init_in_early_boothook(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with patch("scripts.build_self_hosted_qemu_image_candidate.make_seed_iso") as make_seed:
+                write_candidate_proof_seed(
+                    seed_dir=root / "seed",
+                    seed_iso=root / "seed.iso",
+                    run_id="synthetic",
+                    owner_id="owner_synthetic",
+                    owner_slug="synthetic-owner",
+                    env_name="proof",
+                )
+            user_data = make_seed.call_args.kwargs["user_data"]
+            self.assertTrue(user_data.startswith("#cloud-boothook\n#!/bin/bash\n"))
+            self.assertIn("/opt/pios-core/bin/pios-core-init", user_data)
+            self.assertIn("sync\necho PIOS_QEMU_CANDIDATE_PROOF_DONE", user_data)
+
     def test_starter_hygiene_seed_requires_empty_core_state_before_init(self) -> None:
         user_data = build_hygiene_user_data(
             owner_id="owner_synthetic_owner_b",
@@ -191,6 +260,49 @@ class PiosSelfHostedVmTests(unittest.TestCase):
             }))
             with self.assertRaisesRegex(ValueError, "standalone_image"):
                 release_image_from_manifest(json.loads(manifest_path.read_text()), manifest_path)
+
+    def test_starter_residue_seed_checks_known_paths_without_embedding_token(self) -> None:
+        token = "distinct-prior-synthetic-owner"
+        user_data = build_residue_inspection_user_data(token)
+        self.assertTrue(user_data.startswith("#cloud-boothook\n#!/bin/bash\n"))
+        self.assertIn(RESIDUE_INSPECTION_PASSED, user_data)
+        self.assertIn("PIOS_STARTER_RESIDUE_INSPECTION_FAILED:$search_root", user_data)
+        self.assertIn("test ! -e /var/lib/pios-core", user_data)
+        self.assertIn("grep -R -a -F", user_data)
+        self.assertNotIn(token, user_data)
+        for path in TEMPORARY_RESIDUE_PATHS:
+            self.assertIn(path, user_data)
+        for path in SEARCH_ROOTS:
+            self.assertIn(path, user_data)
+        self.assertNotIn("pios-core-init --manifest", user_data)
+
+    def test_starter_residue_uses_source_candidate_owner_slug_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            candidate_path = Path(directory) / "candidate-result.json"
+            candidate_path.write_text(json.dumps({"owner_slug": "prior-synthetic-owner"}))
+            manifest_path = Path(directory) / "release-manifest.json"
+            manifest = {"source_candidate_result": str(candidate_path)}
+            token, source = derive_forbidden_token(manifest, manifest_path, None)
+            self.assertEqual(token, "prior-synthetic-owner")
+            self.assertIn("owner_slug", source)
+
+    def test_starter_cleanup_removes_only_known_empty_temporary_mount_directory(self) -> None:
+        user_data = build_cleanup_user_data()
+        self.assertTrue(user_data.startswith("#cloud-boothook\n#!/bin/bash\n"))
+        self.assertIn(CLEANUP_START, user_data)
+        self.assertIn(CLEANUP_DONE, user_data)
+        self.assertIn(f"test -d {TEMPORARY_MOUNT_DIRECTORY}", user_data)
+        self.assertIn(f"rmdir {TEMPORARY_MOUNT_DIRECTORY}", user_data)
+        self.assertIn(f"test ! -e {TEMPORARY_MOUNT_DIRECTORY}", user_data)
+        self.assertNotIn("pios-core-init", user_data)
+
+    def test_starter_cleanup_finalizer_requires_completed_cleanup_markers(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            log_path = Path(directory) / "cleanup.log"
+            log_path.write_text(f"{CLEANUP_START}\n{CLEANUP_DONE}\n")
+            markers = validate_cleanup_log(log_path)
+            self.assertTrue(markers["cleanup_start_seen"])
+            self.assertTrue(markers["cleanup_done_seen"])
 
     def test_synthetic_source_fixture_loop_covers_required_outcomes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

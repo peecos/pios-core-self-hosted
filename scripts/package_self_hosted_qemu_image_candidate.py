@@ -117,6 +117,7 @@ def run_standalone_boot_proof(
         disk_image=proof_overlay,
         seed_iso=proof_seed,
         timeout_seconds=timeout_seconds,
+        stop_when_seen=CANDIDATE_PROOF_DONE,
     )
     proof_log_path = proof_dir / f"{run_id}-proof-serial.log"
     proof_log_path.write_text(proof_log)

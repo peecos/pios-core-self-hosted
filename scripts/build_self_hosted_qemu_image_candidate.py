@@ -135,7 +135,7 @@ def write_candidate_build_seed(
             "ls -l /mnt/pios-seed/offline-debs | tee /dev/console; "
             "dpkg -i /mnt/pios-seed/offline-debs/*.deb; "
             + ("printf '%s\\n' gve > /etc/modules-load.d/pios-google-gvnic.conf; modinfo gve | tee /dev/console || true; modprobe gve || true; " if install_google_gvnic_modules else "")
-            + "umount /mnt/pios-seed || true; "
+            + "umount /mnt/pios-seed || true; rmdir /mnt/pios-seed || true; "
         )
     user_data = (
         "#cloud-config\n"
@@ -262,19 +262,18 @@ def write_candidate_proof_seed(
     )
     health_path = f"/var/lib/pios-core/owners/{owner_slug}/core/system/bootstrap/health-check.json"
     user_data = (
-        "#cloud-config\n"
-        "write_files:\n"
-        "  - path: /tmp/pios-self-hosted-manifest.json\n"
-        "    permissions: '0600'\n"
-        "    content: |\n"
-        f"{indent_block(manifest, 6)}"
-        "runcmd:\n"
-        "  - [bash, -lc, \"set -euo pipefail; trap 'sync; shutdown -h now' EXIT; "
-        f"echo {CANDIDATE_PROOF_START} | tee /dev/console; "
-        "test -x /opt/pios-core/bin/pios-core-init; "
-        "/opt/pios-core/bin/pios-core-init --manifest /tmp/pios-self-hosted-manifest.json | tee /tmp/pios-core-init-result.json /dev/console; "
-        f"cat {health_path} | tee /tmp/pios-core-health-check.json /dev/console; "
-        f"echo {CANDIDATE_PROOF_DONE} | tee /dev/console\"]\n"
+        "#cloud-boothook\n"
+        "#!/bin/bash\n"
+        "set -euo pipefail\n"
+        "trap 'sync; shutdown -h now' EXIT\n"
+        "cat > /tmp/pios-self-hosted-manifest.json <<'PIOS_MANIFEST'\n"
+        f"{manifest}\n"
+        "PIOS_MANIFEST\n"
+        f"echo {CANDIDATE_PROOF_START} | tee /dev/console\n"
+        "test -x /opt/pios-core/bin/pios-core-init\n"
+        "/opt/pios-core/bin/pios-core-init --manifest /tmp/pios-self-hosted-manifest.json | tee /tmp/pios-core-init-result.json /dev/console\n"
+        f"cat {health_path} | tee /tmp/pios-core-health-check.json /dev/console\n"
+        f"sync\necho {CANDIDATE_PROOF_DONE} | tee /dev/console\n"
     )
     make_seed_iso(
         seed_dir=seed_dir,
@@ -365,7 +364,7 @@ def boot_qemu(
     timeout_seconds: int,
     live_log_path: Path | None = None,
     allow_user_network: bool = False,
-    stop_when_seen: str | None = None,
+    stop_when_seen: str | tuple[str, ...] | None = None,
 ) -> str:
     shutil.copy2(vars_template, vars_fd)
     command = build_qemu_command(
@@ -406,7 +405,8 @@ def boot_qemu(
             reader.join(timeout=2)
             return "".join(output)
         recent = "".join(output[-200:])
-        if stop_when_seen and stop_when_seen in recent:
+        stop_markers = (stop_when_seen,) if isinstance(stop_when_seen, str) else stop_when_seen
+        if stop_markers and any(marker in recent for marker in stop_markers):
             process.terminate()
             try:
                 process.wait(timeout=10)
