@@ -74,18 +74,11 @@ confirmation flag:
 
 Execution also requires a non-preview unique proof ID, a named billing account
 and budget, positive owner-approved monthly and proof cost ceilings, refreshed
-authentication, a separately verified operator-permission record, and
-successful preflight. The runner does **not** treat readable IAM policy as
-evidence of effective access: inherited, conditional, group, and custom-role
-permissions can differ from visible project bindings.
-
-The operator record must conform to
-`schemas/manifests/pios_starter_r4_gcp_operator_permission_record.schema.json`,
-bind the exact project and gcloud account, be unexpired, identify independent
-verification evidence, and prove the effective create/delete/read permissions
-for the temporary bucket, object, image, disks, and VM, plus IAP tunnel and OS
-Login access. A missing, mismatched, expired, or incomplete record blocks
-execution before any cloud command.
+authentication, and successful preflight. The owner-selected effective-access
+validation is the isolated full lifecycle itself: it must create only its
+temporary resources, boot the data-empty image, read passed health through
+IAP/OS Login, and delete every temporary resource. It does not use IAM-policy
+introspection or require an organization-wide reviewer role.
 
 Preflight then parses—not merely lists—the active account, exact project,
 project-to-billing-account linkage, and named budget. The budget must scope to
@@ -93,8 +86,10 @@ the exact project (project ID or number), use USD, have a positive amount no
 greater than the approved monthly ceiling, contain 50%, 80%, and 100% threshold
 alerts, and have an enabled alert-delivery path. It also checks C4A availability
 and regional quota, private VPC/subnet, IAP TCP/22 firewall readiness,
-IAM-policy visibility as supporting owner-review evidence only, and
-temporary-resource name absence.
+temporary-resource name absence. A successful result is direct evidence that
+the current operator had the required permissions for this exact lifecycle; a
+failed result records the blocking operation and still attempts cleanup after
+complete name-absence preflight.
 
 After boot, a future execution requires both serial markers and IAP/OS Login
 readback of a passed five-zone health JSON. Cleanup always attempts deletion of
@@ -125,9 +120,9 @@ python3 scripts/run_pios_starter_r4_google_cloud_proof.py \
 The last command must report `preview_only` and `cloud_calls: 0`.
 
 For a later, separately authorized execution, the owner must supply the exact
-budget display name and an independently produced permission record with
-`--operator-permission-record`. This runbook intentionally provides no command
-that creates a passed record or performs a cloud proof.
+budget display name and the explicit confirmation flag. This runbook
+intentionally provides no command that creates a persistent runtime, Owner Bind,
+or owner data.
 
 ## Boundary
 

@@ -51,34 +51,6 @@ PROOF_START = "PIOS_R4_GCP_PROOF_START"
 PROOF_HEALTH = "PIOS_R4_GCP_PROOF_HEALTH_PASSED"
 PROOF_DONE = "PIOS_R4_GCP_PROOF_DONE"
 HEALTH_SCHEMA = "self_hosted_core_health_check_v1"
-OPERATOR_PERMISSION_RECORD_SCHEMA = "pios_starter_r4_gcp_operator_permission_record_v1"
-REQUIRED_PERMISSIONS = frozenset(
-    {
-        "compute.images.create",
-        "compute.images.delete",
-        "compute.images.get",
-        "compute.disks.create",
-        "compute.disks.delete",
-        "compute.disks.get",
-        "compute.instances.create",
-        "compute.instances.delete",
-        "compute.instances.get",
-        "compute.instances.getSerialPortOutput",
-        "compute.machineTypes.get",
-        "compute.regions.get",
-        "compute.networks.get",
-        "compute.subnetworks.get",
-        "compute.firewalls.list",
-        "storage.buckets.create",
-        "storage.buckets.delete",
-        "storage.buckets.get",
-        "storage.objects.create",
-        "storage.objects.delete",
-        "storage.objects.get",
-        "iap.tunnelInstances.accessViaIAP",
-        "compute.osLogin",
-    }
-)
 
 
 class R4ProofExecutionError(ValueError):
@@ -124,87 +96,6 @@ def write_user_data(*, proof_id: str, output_dir: Path) -> Path:
     path = output_dir / "r4-proof-user-data.yaml"
     path.write_text(user_data)
     return path
-
-
-def parse_timestamp(value: Any, *, field: str) -> datetime:
-    if not isinstance(value, str) or not value:
-        raise R4ProofExecutionError(f"operator permission record requires {field}")
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError as exc:
-        raise R4ProofExecutionError(f"operator permission record has invalid {field}") from exc
-    if parsed.tzinfo is None:
-        raise R4ProofExecutionError(f"operator permission record {field} must include a timezone")
-    return parsed.astimezone(timezone.utc)
-
-
-def validate_operator_permission_record(
-    *, path: Path | None, project: str, account: str, now: datetime | None = None
-) -> dict[str, Any]:
-    """Require independently verified, still-valid effective-permission evidence.
-
-    Google Cloud IAM-policy visibility cannot prove group, inherited, conditional,
-    or custom-role effective permissions.  This deliberately consumes a separately
-    verified record and never manufactures a passed record from policy bindings.
-    """
-    if path is None:
-        raise R4ProofExecutionError("confirmed execution requires an operator permission record")
-    if not path.is_file():
-        raise R4ProofExecutionError("operator permission record is missing")
-    try:
-        record = json.loads(path.read_text())
-    except json.JSONDecodeError as exc:
-        raise R4ProofExecutionError("operator permission record is not valid JSON") from exc
-    if not isinstance(record, Mapping):
-        raise R4ProofExecutionError("operator permission record must be a JSON object")
-    if record.get("schema_version") != OPERATOR_PERMISSION_RECORD_SCHEMA:
-        raise R4ProofExecutionError("operator permission record has an unexpected schema")
-    if record.get("status") != "passed":
-        raise R4ProofExecutionError("operator permission record must have status passed")
-    if record.get("project") != project or record.get("account") != account:
-        raise R4ProofExecutionError("operator permission record does not bind the requested project and account")
-
-    effective = record.get("effective_permissions")
-    if not isinstance(effective, list) or not all(isinstance(item, str) for item in effective):
-        raise R4ProofExecutionError("operator permission record has no effective permission list")
-    missing = sorted(REQUIRED_PERMISSIONS.difference(effective))
-    if missing:
-        raise R4ProofExecutionError(
-            "operator permission record lacks required effective permissions: " + ", ".join(missing)
-        )
-
-    iap_oslogin = record.get("iap_oslogin")
-    if not isinstance(iap_oslogin, Mapping) or iap_oslogin.get("iap_tunnel_verified") is not True or iap_oslogin.get("os_login_verified") is not True:
-        raise R4ProofExecutionError("operator permission record does not verify both IAP tunnel and OS Login")
-    verification = record.get("verification")
-    if not isinstance(verification, Mapping) or not all(
-        isinstance(verification.get(field), str) and verification[field].strip()
-        for field in ("method", "evidence_reference")
-    ):
-        raise R4ProofExecutionError("operator permission record requires verification method and evidence reference")
-
-    verified_at = parse_timestamp(record.get("verified_at"), field="verified_at")
-    expires_at = parse_timestamp(record.get("expires_at"), field="expires_at")
-    current = now or datetime.now(timezone.utc)
-    if expires_at <= current:
-        raise R4ProofExecutionError("operator permission record is expired")
-    if verified_at > expires_at:
-        raise R4ProofExecutionError("operator permission record verified_at is after expires_at")
-    return {
-        "record_path": str(path),
-        "schema_version": OPERATOR_PERMISSION_RECORD_SCHEMA,
-        "status": "passed",
-        "project": project,
-        "account": account,
-        "verified_at": verified_at.isoformat().replace("+00:00", "Z"),
-        "expires_at": expires_at.isoformat().replace("+00:00", "Z"),
-        "effective_permissions": sorted(set(effective)),
-        "iap_oslogin": {"iap_tunnel_verified": True, "os_login_verified": True},
-        "verification": {
-            "method": verification["method"].strip(),
-            "evidence_reference": verification["evidence_reference"].strip(),
-        },
-    }
 
 
 def canonical_billing_account_name(billing_account: str) -> str:
@@ -393,7 +284,6 @@ def run_preflight(
     billing_account: str,
     budget_display_name: str,
     monthly_cost_ceiling_usd: float,
-    operator_permission_record: Mapping[str, Any],
 ) -> dict[str, Any]:
     results: dict[str, Any] = {}
     active = run_command(commands["verify_active_account"], check=True)
@@ -428,13 +318,6 @@ def run_preflight(
     for name in ("verify_machine_type", "verify_regional_quota", "verify_network", "verify_subnet"):
         completed = run_command(commands[name], check=True)
         results[name] = command_result(name, completed)
-    permission_completed = run_command(commands["verify_iam_policy_visibility"], check=True)
-    results["verify_iam_policy_visibility"] = command_result("verify_iam_policy_visibility", permission_completed)
-    permissions_payload = load_command_json(permission_completed, message="project IAM policy preflight did not return JSON")
-    if not isinstance(permissions_payload, Mapping) or not isinstance(permissions_payload.get("bindings"), list):
-        raise R4ProofExecutionError("project IAM policy preflight did not return policy bindings")
-    results["operator_permission_record"] = dict(operator_permission_record)
-    results["iam_policy_visibility_only"] = True
     firewall = run_command(commands["verify_iap_firewall"], check=True)
     results["verify_iap_firewall"] = command_result("verify_iap_firewall", firewall)
     try:
@@ -452,7 +335,7 @@ def run_preflight(
         "check_instance_absent",
     ):
         results[name] = assert_absent(name, run_command(commands[name], check=False))
-    results["cloud_call_count"] = 16
+    results["cloud_call_count"] = 15
     return results
 
 
@@ -523,7 +406,6 @@ def preview_or_run(
     account: str,
     billing_account: str,
     budget_display_name: str,
-    operator_permission_record_path: Path | None,
     network: str,
     subnet: str,
     monthly_cost_ceiling_usd: float,
@@ -558,8 +440,8 @@ def preview_or_run(
         "temporary_resources": names,
         "requires_confirmation": CONFIRMATION_FLAG,
         "execution_requirements": {
-            "operator_permission_record_schema": OPERATOR_PERMISSION_RECORD_SCHEMA,
-            "operator_permission_record": "separately verified, project/account-bound, unexpired effective-permission evidence",
+            "effective_permission_validation": "the isolated full lifecycle must create, boot, read health through IAP/OS Login, and delete every temporary proof resource",
+            "no_iam_introspection_or_reviewer_role": True,
             "billing_account": billing_account,
             "budget_display_name": budget_display_name,
             "budget_scope": "exact target project",
@@ -585,9 +467,6 @@ def preview_or_run(
         monthly_cost_ceiling_usd=monthly_cost_ceiling_usd,
         proof_cost_ceiling_usd=proof_cost_ceiling_usd,
     )
-    operator_permission_record = validate_operator_permission_record(
-        path=operator_permission_record_path, project=project, account=account
-    )
     preflight: dict[str, Any] | None = None
     executed: list[dict[str, Any]] = []
     serial: dict[str, Any] | None = None
@@ -604,7 +483,6 @@ def preview_or_run(
             billing_account=billing_account,
             budget_display_name=budget_display_name,
             monthly_cost_ceiling_usd=monthly_cost_ceiling_usd,
-            operator_permission_record=operator_permission_record,
         )
         # Only delete names after a complete preflight has verified every one is
         # absent.  Earlier preflight failure has created nothing and must not
@@ -653,6 +531,13 @@ def preview_or_run(
             else "incomplete"
         ),
         "failure": failure,
+        "effective_permission_validation": {
+            "mode": "isolated_full_lifecycle",
+            "status": "passed" if status == "passed" else "failed",
+            "validated_operations": [item["step"] for item in executed],
+            "cleanup_complete": cleanup_complete,
+            "iap_oslogin_health_passed": readback is not None,
+        },
         "budget_cost_limits": {
             "billing_account": billing_account,
             "budget_display_name": budget_display_name,
@@ -674,7 +559,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--account", default=DEFAULT_ACCOUNT)
     parser.add_argument("--billing-account", default="<owner-approved-billing-account>")
     parser.add_argument("--budget-display-name", default=DEFAULT_BUDGET_DISPLAY_NAME)
-    parser.add_argument("--operator-permission-record", type=Path)
     parser.add_argument("--network", default=DEFAULT_NETWORK)
     parser.add_argument("--subnet", default=DEFAULT_SUBNET)
     parser.add_argument("--monthly-cost-ceiling-usd", type=float, default=0.0)
@@ -695,9 +579,6 @@ def main(argv: list[str] | None = None) -> int:
         account=args.account,
         billing_account=args.billing_account,
         budget_display_name=args.budget_display_name,
-        operator_permission_record_path=(
-            resolve_repo_path(args.operator_permission_record) if args.operator_permission_record else None
-        ),
         network=args.network,
         subnet=args.subnet,
         monthly_cost_ceiling_usd=args.monthly_cost_ceiling_usd,
