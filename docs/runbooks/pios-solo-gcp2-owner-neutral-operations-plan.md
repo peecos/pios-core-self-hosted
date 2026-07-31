@@ -135,6 +135,19 @@ egress/privacy review.
 **Exit evidence:** a reviewable proposed maintenance record only. No automatic
 patching, guest telemetry, Cloud Ops agent, or log-export sink is enabled.
 
+### O4 Checkpoint - 2026-08-01
+
+Read-only inventory confirms Ubuntu 24.04.4 LTS, kernel `6.8.0-136-generic`,
+no failed systemd units, 36 GiB free root capacity, active guest-agent service,
+and working private OS Login. No update index was refreshed and no package was
+changed.
+
+The no-egress/no-public-IP baseline has no approved package-download path, so
+ordinary APT update/upgrade is intentionally blocked. The O4 proposal requires
+a separate owner decision for an exact signed package set, offline transport or
+separately reviewed egress, pre-change snapshot, maintenance window, stop
+rules, and post-patch health proof. It does not authorize an actual patch.
+
 ### O5: Retention Review Or Retirement
 
 On or before August 31, 2026, the owner decides to renew the data-empty
