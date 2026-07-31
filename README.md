@@ -22,6 +22,9 @@ Boundaries:
 - no owner data is included;
 - no private manifests are included;
 - no private key material is included;
+- Corebox is an optional, local-first companion release distributed alongside
+  PIOS Starter; it is not embedded in the PIOS Starter Disk Image or required
+  by the Core runtime;
 - provider support is limited to what the readiness matrix explicitly states;
 - AWS owners should normally use `https://github.com/peecos/pios-core-aws-template`.
 

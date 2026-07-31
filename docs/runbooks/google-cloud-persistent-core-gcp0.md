@@ -1,6 +1,17 @@
 # Google Cloud Persistent One-Owner Core: GCP-0 Deployment Review
 
-Status: review-only; zero Google Cloud calls; no deployment authorization.
+Status: historical GCP-0 review. The later data-empty GCP-1 baseline and
+isolated r4 proof are complete; this file is not an execution authorization.
+
+> **Supersession note (2026-07-31):** Do not use this original planning record
+> as a retained-deployment command source. The proven private baseline uses
+> ARM64 `c4a-standard-2` in `europe-north1-a`, 40/100/20 GiB Hyperdisk Balanced
+> boot/Core/key disks, GVNIC plus UEFI-compatible image metadata, Shielded VM,
+> no external IP, no service account/scopes, IAP/OS Login, and an all-false
+> cloud-init manifest. The isolated r4 import proof validated that same private
+> shape using temporary resources only and did not modify the retained
+> `pios-core-solo` baseline. The next owner choice is documented in
+> `pios-solo-gcp2-owner-neutral-operations-decision.md`.
 
 The Primary Mac QEMU path is the local build, regression, diagnostics, and
 portability-test environment. This runbook prepares—not deploys—a retained,

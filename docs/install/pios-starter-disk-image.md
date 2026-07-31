@@ -149,6 +149,27 @@ no-public-IP, IAP/OS Login, no-service-account, Shielded VM, and no-egress
 baseline. Import commands, disk type, and guest-driver requirements are in the
 Google persistent-Core runbook.
 
+## Optional Corebox Companion
+
+Corebox is an optional, local-first Inbox companion distributed alongside PIOS
+Starter for any Starter user to install. It is not part of this disk image and
+is not a Core runtime dependency.
+
+The Starter therefore contains no Corebox binary, app-group state, Inbox
+folder, capture, manifest, local receipt history, endpoint, device identifier
+or key, credential, sync setting, or enabled app transport. The generic source
+primitives in the Starter deliberately preserve this separation: they support
+future synthetic adapters without choosing Corebox storage, UI, identity, or
+network behavior.
+
+A separately released unbound companion may provide local macOS/iOS capture,
+Share extensions, local manifests and ledgers, candidate construction, and
+archive/move/delete behavior. Its compatible-Core configuration must remain
+disabled and unbound until a later owner explicitly selects their own Solo
+target, confirms device enrollment, completes a synthetic-only proof, and
+passes independent review. That later bind is not authorized by image import,
+data-empty Core boot, or this documentation.
+
 ## Owner Bind
 
 **Owner Bind** is a separately approved action. It turns a Neutral Golden
