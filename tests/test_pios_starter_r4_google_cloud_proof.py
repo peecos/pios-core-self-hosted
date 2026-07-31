@@ -1,5 +1,6 @@
 import hashlib
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -241,7 +242,7 @@ class R4GoogleCloudProofTests(unittest.TestCase):
                 {"thresholdPercent": "0.8"},
                 {"thresholdPercent": 1.0},
             ],
-            "allUpdatesRule": {"disableDefaultIamRecipients": False},
+            "notificationsRule": {},
         }
         posture = runner.validate_budget_posture(
             [budget],
@@ -251,6 +252,7 @@ class R4GoogleCloudProofTests(unittest.TestCase):
             monthly_cost_ceiling_usd=200,
         )
         self.assertEqual(posture["amount_usd"], "200")
+        self.assertEqual(posture["alert_delivery_mode"], "default_iam_recipients")
         with self.assertRaisesRegex(runner.R4ProofExecutionError, "not linked"):
             runner.validate_billing_linkage(
                 {"billingAccountName": "billingAccounts/999999-999999-999999"},
@@ -272,6 +274,35 @@ class R4GoogleCloudProofTests(unittest.TestCase):
                 budget_display_name="PIOS r4 proof ceiling",
                 monthly_cost_ceiling_usd=200,
             )
+
+    def test_preflight_failure_preserves_partial_read_only_evidence(self) -> None:
+        commands = {
+            name: [name]
+            for name in (
+                "verify_active_account",
+                "verify_project",
+                "verify_billing",
+                "verify_budget_visibility",
+            )
+        }
+        responses = [
+            subprocess.CompletedProcess([], 0, json.dumps([{"account": "operator@example.invalid", "status": "ACTIVE"}]), ""),
+            subprocess.CompletedProcess([], 0, json.dumps({"projectId": "pios-core-solo", "projectNumber": "123456789012"}), ""),
+            subprocess.CompletedProcess([], 0, json.dumps({"billingAccountName": "billingAccounts/000000-000000-000000"}), ""),
+            subprocess.CompletedProcess([], 0, json.dumps([]), ""),
+        ]
+        with patch("scripts.run_pios_starter_r4_google_cloud_proof.run_command", side_effect=responses):
+            with self.assertRaises(runner.R4ProofPreflightError) as raised:
+                runner.run_preflight(
+                    commands,
+                    project="pios-core-solo",
+                    account="operator@example.invalid",
+                    billing_account="000000-000000-000000",
+                    budget_display_name="PIOS r4 proof ceiling",
+                    monthly_cost_ceiling_usd=200,
+                )
+        self.assertEqual(raised.exception.results["cloud_call_count"], 4)
+        self.assertIn("verify_budget_visibility", raised.exception.results)
 
     def test_confirmed_execution_uses_isolated_lifecycle_instead_of_iam_introspection(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

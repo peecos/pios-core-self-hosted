@@ -57,6 +57,14 @@ class R4ProofExecutionError(ValueError):
     """Raised when the r4 execution preflight or proof fails closed."""
 
 
+class R4ProofPreflightError(R4ProofExecutionError):
+    """Preserves partial read-only preflight evidence after a failure."""
+
+    def __init__(self, message: str, results: Mapping[str, Any]):
+        super().__init__(message)
+        self.results = dict(results)
+
+
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -193,14 +201,14 @@ def validate_budget_posture(
         for required in (0.5, 0.8, 1.0):
             if not any(abs(actual - required) < 0.000001 for actual in thresholds):
                 raise R4ProofExecutionError("required budget threshold alerts must include 50%, 80%, and 100%")
-        all_updates = budget.get("allUpdatesRule")
-        if not isinstance(all_updates, Mapping):
-            raise R4ProofExecutionError("required budget does not define an alert delivery rule")
-        channels = all_updates.get("monitoringNotificationChannels", [])
+        notifications = budget.get("notificationsRule", budget.get("allUpdatesRule", {}))
+        if not isinstance(notifications, Mapping):
+            raise R4ProofExecutionError("required budget has an invalid alert delivery rule")
+        channels = notifications.get("monitoringNotificationChannels", [])
         alert_delivery = (
-            all_updates.get("disableDefaultIamRecipients") is False
+            notifications.get("disableDefaultIamRecipients") is not True
             or isinstance(channels, list) and any(isinstance(channel, str) and channel for channel in channels)
-            or isinstance(all_updates.get("pubsubTopic"), str) and bool(all_updates["pubsubTopic"])
+            or isinstance(notifications.get("pubsubTopic"), str) and bool(notifications["pubsubTopic"])
         )
         if not alert_delivery:
             raise R4ProofExecutionError("required budget has no enabled alert delivery")
@@ -210,6 +218,11 @@ def validate_budget_posture(
             "amount_usd": str(amount),
             "threshold_percentages": sorted(set(thresholds)),
             "alert_delivery_verified": True,
+            "alert_delivery_mode": (
+                "default_iam_recipients"
+                if notifications.get("disableDefaultIamRecipients") is not True
+                else "monitoring_channel_or_pubsub"
+            ),
         }
     raise R4ProofExecutionError("required named project-scoped budget is absent")
 
@@ -286,56 +299,67 @@ def run_preflight(
     monthly_cost_ceiling_usd: float,
 ) -> dict[str, Any]:
     results: dict[str, Any] = {}
-    active = run_command(commands["verify_active_account"], check=True)
-    results["verify_active_account"] = command_result("verify_active_account", active)
-    results["active_account"] = validate_active_account(
-        load_command_json(active, message="active-account preflight did not return JSON"), account=account
-    )
+    cloud_call_count = 0
 
-    project_completed = run_command(commands["verify_project"], check=True)
-    results["verify_project"] = command_result("verify_project", project_completed)
-    project_identity = validate_project_identity(
-        load_command_json(project_completed, message="project preflight did not return JSON"), project=project
-    )
-    results["project_identity"] = project_identity
+    def execute(name: str, *, check: bool) -> subprocess.CompletedProcess[str]:
+        nonlocal cloud_call_count
+        cloud_call_count += 1
+        return run_command(commands[name], check=check)
 
-    billing = run_command(commands["verify_billing"], check=True)
-    results["verify_billing"] = command_result("verify_billing", billing)
-    results["billing_linkage"] = validate_billing_linkage(
-        load_command_json(billing, message="billing preflight did not return JSON"), billing_account=billing_account
-    )
-
-    budget = run_command(commands["verify_budget_visibility"], check=True)
-    results["verify_budget_visibility"] = command_result("verify_budget_visibility", budget)
-    results["budget_posture"] = validate_budget_posture(
-        load_command_json(budget, message="budget preflight did not return JSON"),
-        project=project,
-        project_number=project_identity["project_number"],
-        budget_display_name=budget_display_name,
-        monthly_cost_ceiling_usd=monthly_cost_ceiling_usd,
-    )
-
-    for name in ("verify_machine_type", "verify_regional_quota", "verify_network", "verify_subnet"):
-        completed = run_command(commands[name], check=True)
-        results[name] = command_result(name, completed)
-    firewall = run_command(commands["verify_iap_firewall"], check=True)
-    results["verify_iap_firewall"] = command_result("verify_iap_firewall", firewall)
     try:
-        firewall_payload = json.loads(firewall.stdout or "[]")
-    except json.JSONDecodeError as exc:
-        raise R4ProofExecutionError("IAP firewall preflight did not return JSON") from exc
-    if not firewall_allows_iap_ssh(firewall_payload):
-        raise R4ProofExecutionError("private network lacks an IAP TCP/22 firewall path")
-    for name in (
-        "check_bucket_absent",
-        "check_image_absent",
-        "check_boot_disk_absent",
-        "check_core_disk_absent",
-        "check_key_disk_absent",
-        "check_instance_absent",
-    ):
-        results[name] = assert_absent(name, run_command(commands[name], check=False))
-    results["cloud_call_count"] = 15
+        active = execute("verify_active_account", check=True)
+        results["verify_active_account"] = command_result("verify_active_account", active)
+        results["active_account"] = validate_active_account(
+            load_command_json(active, message="active-account preflight did not return JSON"), account=account
+        )
+
+        project_completed = execute("verify_project", check=True)
+        results["verify_project"] = command_result("verify_project", project_completed)
+        project_identity = validate_project_identity(
+            load_command_json(project_completed, message="project preflight did not return JSON"), project=project
+        )
+        results["project_identity"] = project_identity
+
+        billing = execute("verify_billing", check=True)
+        results["verify_billing"] = command_result("verify_billing", billing)
+        results["billing_linkage"] = validate_billing_linkage(
+            load_command_json(billing, message="billing preflight did not return JSON"), billing_account=billing_account
+        )
+
+        budget = execute("verify_budget_visibility", check=True)
+        results["verify_budget_visibility"] = command_result("verify_budget_visibility", budget)
+        results["budget_posture"] = validate_budget_posture(
+            load_command_json(budget, message="budget preflight did not return JSON"),
+            project=project,
+            project_number=project_identity["project_number"],
+            budget_display_name=budget_display_name,
+            monthly_cost_ceiling_usd=monthly_cost_ceiling_usd,
+        )
+
+        for name in ("verify_machine_type", "verify_regional_quota", "verify_network", "verify_subnet"):
+            completed = execute(name, check=True)
+            results[name] = command_result(name, completed)
+        firewall = execute("verify_iap_firewall", check=True)
+        results["verify_iap_firewall"] = command_result("verify_iap_firewall", firewall)
+        try:
+            firewall_payload = json.loads(firewall.stdout or "[]")
+        except json.JSONDecodeError as exc:
+            raise R4ProofExecutionError("IAP firewall preflight did not return JSON") from exc
+        if not firewall_allows_iap_ssh(firewall_payload):
+            raise R4ProofExecutionError("private network lacks an IAP TCP/22 firewall path")
+        for name in (
+            "check_bucket_absent",
+            "check_image_absent",
+            "check_boot_disk_absent",
+            "check_core_disk_absent",
+            "check_key_disk_absent",
+            "check_instance_absent",
+        ):
+            results[name] = assert_absent(name, execute(name, check=False))
+    except Exception as exc:
+        results["cloud_call_count"] = cloud_call_count
+        raise R4ProofPreflightError(str(exc), results) from exc
+    results["cloud_call_count"] = cloud_call_count
     return results
 
 
@@ -506,6 +530,9 @@ def preview_or_run(
         health_command = run_command(commands["iap_oslogin_health_readback"], check=True, timeout=timeout_seconds)
         readback = validate_iap_health_readback(health_command.stdout or "")
         status = "passed"
+    except R4ProofPreflightError as exc:
+        preflight = exc.results
+        failure = f"R4ProofExecutionError: {exc}"
     except Exception as exc:  # Failure evidence and cleanup are both mandatory for this runner.
         failure = f"{type(exc).__name__}: {exc}"
     finally:
