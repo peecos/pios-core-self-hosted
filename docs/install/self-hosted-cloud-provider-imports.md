@@ -5,6 +5,12 @@ Status: planning guidance; Google Cloud experimental
 This document defines the expected shape of future cloud-provider import
 guidance for the PIOS Core Self-Hosted golden image.
 
+The neutral image boundary and Owner Bind instructions are in:
+
+```text
+docs/install/pios-starter-disk-image.md
+```
+
 Use this proof template for each provider:
 
 ```text

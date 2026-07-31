@@ -80,6 +80,10 @@ Plan:
 
 `docs/runbooks/self-hosted-golden-vm-image-plan.md`
 
+Starter instructions:
+
+`docs/install/pios-starter-disk-image.md`
+
 ## Owner Bind Boundary
 
 The **PIOS Starter Disk Image** is a **Neutral Golden Starter**. It can be made more
