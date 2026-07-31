@@ -109,6 +109,22 @@ recovery state, never a new independent Core.
 **Exit evidence:** documented snapshot readers, retention, encryption posture,
 isolated restore cleanup, and private health readback.
 
+### O3 Checkpoint - 2026-07-31
+
+The owner authorized one restore from the current OS Login boot/Core/key
+snapshots. It created three temporary Hyperdisk Balanced disks and private
+Shielded C4A VM `pios-core-o3-restore-20260731-r1`, at internal
+`10.83.0.11`, with no external IP or service account and the existing
+IAP/no-egress tags. IAP/OS Login read the preserved passed five-zone health
+record at a new guest boot time.
+
+The clone is recovery state, not a fresh Core: its health record retains the
+snapshot's original `checked_at` time and no initializer was run. After health
+readback, the temporary VM and all three restore disks were deleted. A first
+disk-delete attempt correctly waited for the VM deletion to finish; final
+inventory contains only the retained baseline VM and disks. O4 remains a
+separate owner decision.
+
 ### O4: Patching And Maintenance Proposal
 
 Prepare—not execute—a package inventory, maintenance window, rollback point,
