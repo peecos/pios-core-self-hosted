@@ -149,6 +149,11 @@ no-public-IP, IAP/OS Login, no-service-account, Shielded VM, and no-egress
 baseline. Import commands, disk type, and guest-driver requirements are in the
 Google persistent-Core runbook.
 
+For an already retained data-empty Google baseline, use the separate
+[GCP-2 owner-neutral operations plan](../runbooks/pios-solo-gcp2-owner-neutral-operations-plan.md).
+It is a review/operations boundary only; it does not turn a retained VM into
+an Owner-Bound Core or authorize an app connection.
+
 ## Optional Corebox Companion
 
 Corebox is an optional, local-first Inbox companion distributed alongside PIOS

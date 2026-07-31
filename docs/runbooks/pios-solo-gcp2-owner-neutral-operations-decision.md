@@ -20,6 +20,19 @@ The r4 isolated proof does not select either outcome. It proved that the r4
 Starter artifact can be imported, privately booted, read through IAP/OS Login,
 and fully cleaned up without changing retained resources.
 
+## Recorded Retention Direction
+
+On **July 31, 2026**, the owner directed this lane to continue with the
+recommended retention path. For planning purposes, retain the existing
+data-empty baseline through a review on **August 31, 2026**. This direction
+authorizes only the zero-cloud-call GCP-2 operations plan; it does not itself
+authorize a VM restart, snapshot, patch, IAM change, network change, or any
+other cloud operation.
+
+Before a cloud-changing operation, the owner must still record the current
+provider cost estimate, the permitted operator identity, the specific action,
+and its rollback/deletion behavior.
+
 ## What Retention Covers
 
 If approved, the retained baseline is limited to the existing data-empty
