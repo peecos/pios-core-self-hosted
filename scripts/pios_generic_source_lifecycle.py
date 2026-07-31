@@ -151,11 +151,23 @@ def _receipt_for_candidate(candidate: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def expected_receipt_for_candidate(
+    candidate: Mapping[str, Any], original_bytes: bytes
+) -> dict[str, Any]:
+    """Return the deterministic accepted receipt for a validated local candidate.
+
+    This is read-only contract support for higher-level local synthetic
+    projections. It does not retain content, issue a network receipt, or alter
+    lifecycle state.
+    """
+    return _receipt_for_candidate(validate_source_candidate(candidate, original_bytes))
+
+
 def verify_receipt(candidate: Mapping[str, Any], original_bytes: bytes, receipt: Mapping[str, Any]) -> dict[str, Any]:
     normalized = validate_source_candidate(candidate, original_bytes)
     if not isinstance(receipt, Mapping) or receipt.get("schema_version") != RECEIPT_SCHEMA:
         raise ReceiptMismatch(f"receipt.schema_version must be {RECEIPT_SCHEMA}")
-    expected = _receipt_for_candidate(normalized)
+    expected = expected_receipt_for_candidate(normalized, original_bytes)
     for field, expected_value in expected.items():
         if receipt.get(field) != expected_value:
             raise ReceiptMismatch(f"receipt field is not bound to candidate: {field}")
