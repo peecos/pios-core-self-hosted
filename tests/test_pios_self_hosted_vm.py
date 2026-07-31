@@ -33,6 +33,7 @@ from scripts.clean_pios_starter_disk_image_residue import (
 )
 from scripts.finalize_pios_starter_disk_image_cleanup import validate_cleanup_log
 from scripts.validate_pios_starter_disk_image_evidence import validate_evidence_records
+from scripts.plan_pios_starter_signing_review import build_signing_review_plan
 from scripts.pios_local_synthetic_source import run_fixture_suite
 from scripts.plan_google_cloud_import_proof import build_plan
 from scripts.plan_google_cloud_retained_core import build_plan as build_retained_core_plan
@@ -366,6 +367,34 @@ class PiosSelfHostedVmTests(unittest.TestCase):
                     fresh_hygiene=hygiene,
                     residue_inspection=residue,
                 )
+
+    def test_starter_signing_review_plan_is_explicitly_non_mutating_and_blocked(self) -> None:
+        evidence = {
+            "schema_version": "pios_starter_disk_image_evidence_readiness_v1",
+            "status": "passed",
+            "readiness": "local_image_evidence_complete",
+            "release_manifest": "release.json",
+            "summary": {
+                "release_image": "starter.qcow2",
+                "release_image_sha256": "digest",
+                "package_health_proof": "passed",
+                "fresh_vm_hygiene": "passed",
+                "residue_inspection": "passed",
+            },
+        }
+        plan = build_signing_review_plan(
+            evidence_readiness=evidence,
+            source_state={
+                "commit": "abc123",
+                "tags_at_head": [],
+                "tracked_worktree_clean": True,
+                "untracked_artifacts_intentionally_not_evaluated": True,
+            },
+        )
+        self.assertEqual(plan["status"], "blocked_pending_owner_release_decision")
+        self.assertEqual(plan["mode"], "plan_only_no_signing")
+        self.assertIn("owner-approved immutable source tag", plan["missing_inputs"])
+        self.assertIn("no artifact published", plan["boundaries"])
 
     def test_synthetic_source_fixture_loop_covers_required_outcomes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

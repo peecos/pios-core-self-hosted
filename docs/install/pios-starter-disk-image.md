@@ -128,6 +128,19 @@ A passed result means only that the local image evidence is complete. It does
 not sign, publish, import, deploy, create an owner-specific Core, or change
 provider-support status.
 
+To prepare an owner decision for the separately governed production signing
+ceremony without creating a tag, signature, or public release, run:
+
+```bash
+python3 scripts/plan_pios_starter_signing_review.py \
+  --evidence-readiness image-artifacts/pios-starter-disk-image-YYYYMMDD/pios-starter-disk-image-YYYYMMDD-evidence-readiness.json \
+  --output image-artifacts/pios-starter-disk-image-YYYYMMDD/pios-starter-disk-image-YYYYMMDD-signing-review-plan.json
+```
+
+The plan is expected to remain blocked until the owner supplies a release ID,
+immutable source tag, artifact/release-note set, protected production-key
+authorization, and explicit publication decision.
+
 ## Provider Preparation
 
 The provider-specific import path may create only data-empty staging/import
