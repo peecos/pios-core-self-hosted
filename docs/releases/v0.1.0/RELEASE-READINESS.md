@@ -1,6 +1,6 @@
 # PIOS Starter v0.1.0 Release Readiness
 
-Status: stable scope frozen; candidate build and publication pending
+Status: published stable release on 2026-08-01
 
 ## Release Promise
 

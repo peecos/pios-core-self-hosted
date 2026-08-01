@@ -1,10 +1,10 @@
 # PIOS Starter v0.1.0 Release Notes
 
-Status: stable candidate preparation; not yet published
+Status: published stable release
 
 ## Overview
 
-PIOS Starter v0.1.0 is the first planned stable release of the signed,
+PIOS Starter v0.1.0 is the first stable release of the signed,
 data-empty PIOS Core Starter for arm64 QEMU. It provides a neutral Core
 template that an owner or owner-authorized agent can verify and boot before a
 separately governed Owner Bind.
@@ -34,10 +34,10 @@ release.
 
 ## Verification Boundary
 
-The stable release will be published only after the frozen source, generated
-image, package, manifest, checksums, production signature, clean-machine boot
-proof, and public-tree hygiene evidence all agree. A successful Starter boot
-does not authorize Owner Bind, app connection, or personal-data transfer.
+The stable release was published only after the frozen source, generated image,
+package, manifest, checksums, production signature, clean-machine boot proof,
+and public-tree hygiene evidence all agreed. A successful Starter boot does not
+authorize Owner Bind, app connection, or personal-data transfer.
 
 ## Provider Status
 
