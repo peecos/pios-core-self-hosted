@@ -1,8 +1,8 @@
 # PIOS Solo C2: Synthetic-Proof Decision Package And Local Runner Plan
 
-Status: **draft only — no C2 execution or runner implementation is
-authorized.** C1 byte-level interoperability is complete; C2 remains one
-separately named, local-only, harmless lifecycle proof.
+Status: local execution implementation is ready and tested only with disposable
+harmless fixtures. The fixed Corebox fixture has **not** been submitted. C2
+remains one separately named, local-only, harmless lifecycle proof.
 
 ## Purpose
 
@@ -81,11 +81,11 @@ without changing the fixture.
 
 ## Preview Runner Interface
 
-`scripts/run_pios_solo_c2_synthetic_proof.py` now implements only the
-zero-write preview. It validates the immutable four-artifact fixture and
-prints canonical preview JSON without creating a lifecycle root, receipt,
-evidence directory, or other output. It installs a CLI-process audit guard
-that rejects socket/subprocess events.
+`scripts/run_pios_solo_c2_synthetic_proof.py` implements the zero-write
+preview and the separately confirmed local lifecycle path. Both install a
+CLI-process audit guard that rejects socket/subprocess events. The confirmed
+path uses only disposable local lifecycle roots and an atomic harmless evidence
+directory; it has no transport or Core-runtime integration.
 
 ```sh
 python3 scripts/run_pios_solo_c2_synthetic_proof.py \
@@ -95,7 +95,8 @@ python3 scripts/run_pios_solo_c2_synthetic_proof.py \
   --expected-zero-write-preview-sha256 <previewed-sha256> \
   --expected-fixture-manifest-sha256 <previewed-sha256>
 
-# The current runner deliberately rejects this future execution flag:
+# Do not run this command until a named owner decision authorizes this exact
+# fixture, proof ID, receipt time, Solo revision, and empty evidence directory:
 python3 scripts/run_pios_solo_c2_synthetic_proof.py \
   --proof-id <approved-proof-id> \
   --input-dir <approved-local-fixture-directory> \
@@ -105,13 +106,16 @@ python3 scripts/run_pios_solo_c2_synthetic_proof.py \
   --expected-zero-write-preview-sha256 <approved-sha256> \
   --expected-fixture-manifest-sha256 <approved-sha256> \
   --receipt-recorded-at <approved-UTC-whole-second> \
+  --solo-revision <approved-committed-solo-revision> \
   --confirm-c2-local-synthetic-proof
 ```
 
-The preview is the default and only implemented mode. The confirmation flag
-hard-stops before reading or writing the fixture because lifecycle execution is
-not authorized in this implementation. A later separate execution patch and
-named owner authorization are both required.
+The preview is the default and creates no state. The confirmation flag enables
+the local lifecycle only when every execution input is present. The runner
+rejects a missing/changed hash, proof ID, receipt time, Solo revision, existing
+evidence directory, unsafe fixture, or cleanup/evidence failure. The current
+implementation must not be used against the fixed fixture until the named
+owner decision supplies those values.
 
 The confirmation flag alone is insufficient: the runner must require exact
 approved hashes and a new evidence destination. It must reject a changed input

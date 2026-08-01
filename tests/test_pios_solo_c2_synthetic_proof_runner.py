@@ -5,6 +5,7 @@ import hashlib
 import json
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from scripts import pios_canonical_source_primitives as primitives
@@ -137,7 +138,7 @@ class C2SyntheticProofRunnerTests(unittest.TestCase):
             with self.assertRaises(c2.C2PreviewError):
                 self.preview(root, hashes)
 
-    def test_confirmation_flag_refuses_execution_without_reading_or_writing_fixture(self) -> None:
+    def test_confirmation_flag_refuses_execution_without_bound_execution_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "fixture"
             root.mkdir()
@@ -154,6 +155,120 @@ class C2SyntheticProofRunnerTests(unittest.TestCase):
             with contextlib.redirect_stderr(io.StringIO()):
                 self.assertEqual(c2.main(arguments), 2)
             self.assertEqual({path.name: path.read_bytes() for path in root.iterdir()}, before)
+
+    def test_confirmed_execution_uses_disposable_roots_and_retains_only_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            root = base / "fixture"
+            root.mkdir()
+            hashes = build_fixture(root)
+            work_root = base / "work"
+            work_root.mkdir()
+            evidence = base / "evidence"
+            before = {path.name: path.read_bytes() for path in root.iterdir()}
+            result = c2.execute_local_synthetic_proof(
+                input_dir=root,
+                expected_original_sha256=hashes["original"],
+                expected_envelope_sha256=hashes["envelope"],
+                expected_zero_write_preview_sha256=hashes["preview"],
+                expected_fixture_manifest_sha256=hashes["manifest"],
+                proof_id="c2-runner-test-r1",
+                receipt_recorded_at="2026-08-01T00:00:02Z",
+                solo_revision="210181a",
+                evidence_dir=evidence,
+                work_root=work_root,
+                confirmed=True,
+            )
+            self.assertEqual(result["status"], "passed")
+            self.assertEqual(result["cleanup"], {"temporary_lifecycle_roots": 4, "status": "passed"})
+            self.assertEqual(result["network_or_cloud_calls"], 0)
+            self.assertEqual(result["vm_or_core_runtime_changes"], 0)
+            self.assertEqual({path.name: path.read_bytes() for path in root.iterdir()}, before)
+            self.assertEqual(list(work_root.iterdir()), [])
+            self.assertEqual(
+                {path.name for path in evidence.iterdir()},
+                {
+                    "accepted-receipt.json",
+                    "duplicate-receipt.json",
+                    "export.json",
+                    "input",
+                    "outcomes.json",
+                    "result-manifest.json",
+                },
+            )
+            envelope = json.loads((root / "envelope.json").read_bytes())
+            original = (root / "original.bin").read_bytes()
+            accepted = json.loads((evidence / "accepted-receipt.json").read_bytes())
+            duplicate = json.loads((evidence / "duplicate-receipt.json").read_bytes())
+            self.assertEqual(ingress.verify_synthetic_receipt(envelope, original, accepted), accepted)
+            self.assertEqual(ingress.verify_synthetic_receipt(envelope, original, duplicate), duplicate)
+            result_raw = (evidence / "result-manifest.json").read_bytes()
+            self.assertEqual(primitives.canonical_json_bytes(json.loads(result_raw)), result_raw)
+
+    def test_execution_rejects_existing_evidence_destination_before_lifecycle_state(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            root = base / "fixture"
+            root.mkdir()
+            hashes = build_fixture(root)
+            work_root = base / "work"
+            work_root.mkdir()
+            evidence = base / "evidence"
+            evidence.mkdir()
+            with self.assertRaises(c2.C2ExecutionNotAuthorized):
+                c2.execute_local_synthetic_proof(
+                    input_dir=root,
+                    expected_original_sha256=hashes["original"],
+                    expected_envelope_sha256=hashes["envelope"],
+                    expected_zero_write_preview_sha256=hashes["preview"],
+                    expected_fixture_manifest_sha256=hashes["manifest"],
+                    proof_id="c2-runner-test-r1",
+                    receipt_recorded_at="2026-08-01T00:00:02Z",
+                    solo_revision="210181a",
+                    evidence_dir=evidence,
+                    work_root=work_root,
+                    confirmed=True,
+                )
+            self.assertEqual(list(work_root.iterdir()), [])
+
+    def test_execution_failure_retains_only_a_sanitized_failure_marker(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            root = base / "fixture"
+            root.mkdir()
+            hashes = build_fixture(root)
+            work_root = base / "work"
+            work_root.mkdir()
+            evidence = base / "evidence"
+            with mock.patch.object(c2, "_run_main_lifecycle", side_effect=c2.C2PreviewError("injected")):
+                with self.assertRaises(c2.C2PreviewError):
+                    c2.execute_local_synthetic_proof(
+                        input_dir=root,
+                        expected_original_sha256=hashes["original"],
+                        expected_envelope_sha256=hashes["envelope"],
+                        expected_zero_write_preview_sha256=hashes["preview"],
+                        expected_fixture_manifest_sha256=hashes["manifest"],
+                        proof_id="c2-runner-test-r1",
+                        receipt_recorded_at="2026-08-01T00:00:02Z",
+                        solo_revision="210181a",
+                        evidence_dir=evidence,
+                        work_root=work_root,
+                        confirmed=True,
+                    )
+            marker = base / "evidence.failed.json"
+            self.assertFalse(evidence.exists())
+            self.assertEqual(list(work_root.iterdir()), [])
+            self.assertEqual(
+                json.loads(marker.read_bytes()),
+                {
+                    "schema_version": "pios_solo_c2_synthetic_proof_failure_v1",
+                    "status": "failed",
+                    "proof_id": "c2-runner-test-r1",
+                    "failure_class": "C2PreviewError",
+                    "raw_fixture_retained": False,
+                    "temporary_lifecycle_state_retained": False,
+                },
+            )
 
     def test_runner_does_not_import_network_or_process_modules(self) -> None:
         source = Path(c2.__file__).read_text(encoding="utf-8")
