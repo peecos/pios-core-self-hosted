@@ -1,6 +1,7 @@
 # PIOS Solo C3: Local-Transport Decision Package
 
-Status: **draft only — no socket, listener, Corebox client, local transport,
+Status: **the narrow Solo-side Unix-socket foundation is implemented and
+locally tested; no C3 listener session runner, Corebox client, fixture handoff,
 or C3 proof is authorized or implemented.**
 
 ## Purpose and Fixed Input
@@ -28,20 +29,21 @@ unpredictable name, directory mode `0700`, socket mode `0600`, no symlink
 traversal, and automatic unlink/removal on every outcome. It must never listen
 on TCP, UDP, any network interface, or a stable filesystem path.
 
-The Solo listener must obtain platform local-peer credentials where supported
-and require the connecting peer to have the same local UID. Evidence records
-only `same_local_uid: true`; it must not retain the UID, socket path, or other
+The Solo listener must obtain platform local-peer credentials and require the
+connecting peer to have the same local UID. Evidence records only
+`same_local_uid: true`; it must not retain the UID, socket path, or other
 personal machine identifier.
 
 On the current macOS/Python baseline, `getpeereid(3)` and `LOCAL_PEERCRED` are
 available at the operating-system layer, but Python does not expose
-`socket.getpeereid` or Linux `SO_PEERCRED`. A C3 implementation must therefore
-first select and test one small audited macOS peer-credential adapter: a
-minimal `getpeereid(3)` wrapper or a correctly parsed `LOCAL_PEERCRED`
-`xucred` result. It must compare the connected peer effective UID to the
-listener effective UID immediately after `accept()` and before a challenge.
-Failure to obtain or compare credentials is a refusal, never a best-effort
-fallback.
+`socket.getpeereid` or Linux `SO_PEERCRED`. The approved foundation is the
+small macOS-only `ctypes` `getpeereid(3)` adapter in
+`scripts/pios_c3_local_transport.py`. It defines the BSD ABI explicitly as
+`getpeereid(int, uid_t *, gid_t *)`, reads only effective UID/GID, has no
+fallback, and is tested on a connected local `AF_UNIX` socket pair. A later
+session runner must compare the connected peer effective UID to the listener
+effective UID immediately after `accept()` and before a challenge. Failure to
+obtain or compare credentials is a refusal, never a best-effort fallback.
 
 Same-UID verification is an owner-account trust boundary, not proof that the
 peer is a particular signed Corebox process. C3 must state that any process
@@ -56,7 +58,7 @@ without a credential or bearer secret. Both conflict with the current boundary.
 There is no Unix-socket-to-loopback fallback. A future loopback option needs a
 new owner decision and a reviewed non-credential local-peer binding design.
 
-## Future Owner Decision Required Before Implementation or Execution
+## Future Owner Decision Required Before C3 Handoff Execution
 
 | Decision field | Required value |
 | --- | --- |
@@ -152,12 +154,43 @@ reference stops the proof.
 - The listener accepts no second fixture, no ancillary data, and no request
   after the required duplicate response.
 
+## Foundation Implementation — 2026-08-01
+
+`scripts/pios_c3_local_transport.py` implements only the reviewed,
+non-lifecycle building blocks:
+
+- macOS `getpeereid(3)` effective-peer credentials and fail-closed same-EUID
+  verification for connected `AF_UNIX` stream sockets;
+- creation of a fresh absolute-path runtime directory, verified with `lstat`
+  as owner-owned `0700`, plus a fixed `handoff.sock` verified as an owner-owned
+  `0600` Unix socket; and
+- restrictive cleanup that refuses a symlink, non-socket replacement, wrong
+  mode/owner, unexpected path, or a runtime directory that cannot be proven
+  empty after unlink.
+
+It also provides canonical 16 KiB length-prefixed frame validation and exact
+challenge/request binding. The request shape is hard-pinned to exactly the
+prepared C2 fixture ID and these four integrity records:
+
+| Input | SHA-256 | Bytes |
+| --- | --- | ---: |
+| `envelope.json` | `d1c0f4c1d41872f85e5c23331b593413615577524a0fa12ed81086b497370d5d` | 3185 |
+| `original.bin` | `557dcfaa13fcd79c59a61a0dc7d292aedf96ca4bf9aa41908b0ade40726be679` | 42 |
+| `corebox-c2-zero-write-preview.json` | `0a6cc21d9dd0a616558a2e47995fd9c6ad32ebe1e7d38946a8ebe96e6285b732` | 776 |
+| `fixture-manifest.json` | `19e7cc9c57df09cbdea8711e5684257279578a18c39fcde8a92851a26a2245a7` | 870 |
+
+The foundation contains no `accept()` session loop, Corebox client,
+fixture-file reader, lifecycle call, receipt handler, or confirmation flag.
+Its unit tests use an empty local listener and metadata bindings only; they do
+not read, transmit, or submit the prepared fixture. The module has no
+`AF_INET`, `AF_INET6`, `connect`, `sendmsg`, `recvmsg`, or lifecycle import.
+
 ## Planned Execution and Cleanup
 
-No C3 runner exists. A later runner has a zero-write preview by default. It
-must validate exact inputs, no TCP listener, socket directory safety, peer
-binding capability, no endpoint/credential fields, and evidence freshness
-before binding a socket.
+No C3 session runner exists. A later runner has a zero-write preview by
+default. It must validate exact inputs, no TCP listener, socket directory
+safety, peer-binding capability, no endpoint/credential fields, and evidence
+freshness before binding a socket.
 
 Only named confirmation may create the private Unix socket and perform one
 accepted plus one duplicate handoff, receipt validation, and local
