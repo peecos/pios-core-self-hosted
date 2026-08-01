@@ -23,7 +23,6 @@ if str(REPO_ROOT) not in sys.path:
 from scripts.plan_pios_starter_r4_google_cloud_proof import (
     ARTIFACT_SCHEMA,
     CONFIRMATION_FLAG,
-    DEFAULT_ACCOUNT,
     DEFAULT_BUDGET_DISPLAY_NAME,
     DEFAULT_NETWORK,
     DEFAULT_PROJECT,
@@ -597,7 +596,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--proof-id", default="r4-20260731-preview")
     parser.add_argument("--project", default=DEFAULT_PROJECT)
-    parser.add_argument("--account", default=DEFAULT_ACCOUNT)
+    parser.add_argument("--account", required=True)
     parser.add_argument("--billing-account", default="<owner-approved-billing-account>")
     parser.add_argument("--budget-display-name", default=DEFAULT_BUDGET_DISPLAY_NAME)
     parser.add_argument("--network", default=DEFAULT_NETWORK)

@@ -44,7 +44,6 @@ DEFAULT_MACHINE_TYPE = "c4a-standard-2"
 DEFAULT_NETWORK = "pios-core-vpc"
 DEFAULT_SUBNET = "pios-core-en1"
 DEFAULT_PROJECT = "pios-core-solo"
-DEFAULT_ACCOUNT = "valto@prifina.com"
 DEFAULT_BUDGET_DISPLAY_NAME = "<owner-approved-r4-proof-budget-name>"
 DISK_TYPE = "hyperdisk-balanced"
 DISK_SPECS = {"boot": "40GB", "core": "100GB", "keys": "20GB"}
@@ -413,7 +412,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--proof-id", default=DEFAULT_PROOF_ID)
     parser.add_argument("--project", default=DEFAULT_PROJECT)
-    parser.add_argument("--account", default=DEFAULT_ACCOUNT)
+    parser.add_argument("--account", required=True)
     parser.add_argument("--billing-account", default="<owner-approved-billing-account>")
     parser.add_argument("--budget-display-name", default=DEFAULT_BUDGET_DISPLAY_NAME)
     parser.add_argument("--network", default=DEFAULT_NETWORK)

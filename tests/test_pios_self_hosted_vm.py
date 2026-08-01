@@ -468,7 +468,7 @@ class PiosSelfHostedVmTests(unittest.TestCase):
             plan = build_retained_core_plan(
                 artifact_manifest_path=manifest_path,
                 project="pios-core-solo",
-                account="valto@prifina.com",
+                account="operator@example.invalid",
                 bucket="pios-core-solo-import-staging",
                 image_name="pios-core-data-empty-arm64-v1",
                 instance_name="pios-core-solo",

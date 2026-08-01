@@ -99,7 +99,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--artifact-manifest", type=Path, required=True)
     parser.add_argument("--metadata-manifest", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument("--project", default="pios-core-solo"); parser.add_argument("--account", default="valto@prifina.com")
+    parser.add_argument("--project", default="pios-core-solo"); parser.add_argument("--account", required=True)
     parser.add_argument("--bucket", default="pios-core-solo-import-staging"); parser.add_argument("--image-name", default="pios-core-data-empty-arm64-v1")
     parser.add_argument("--instance-name", default="pios-core-solo"); parser.add_argument("--zone", default="europe-north1-a")
     parser.add_argument("--machine-type", default="c4a-standard-2"); parser.add_argument("--network", default="pios-core-vpc")

@@ -141,7 +141,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--artifact-manifest", type=Path, default=DEFAULT_ARTIFACT_MANIFEST)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--project", default="pios-core-solo")
-    parser.add_argument("--account", default="valto@prifina.com")
+    parser.add_argument("--account", required=True)
     parser.add_argument("--bucket", default="pios-core-solo-import-staging")
     parser.add_argument("--image-name", default="pios-core-data-empty-arm64-v1")
     parser.add_argument("--instance-name", default="pios-core-solo")
