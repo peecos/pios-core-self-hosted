@@ -205,6 +205,12 @@ authorization argument. Its CLI remains preview/refusal-only. Local tests use
 mocks and do not open an AF_UNIX connection; a future named owner decision is
 still required before any listener/socket/session use.
 
+The separate command-level orchestration package is also implemented but hard
+disabled. It validates exact reviewed Solo/Corebox revisions and named inputs,
+would start the Corebox developer tool only after listener bind, and refuses
+before `Popen`, socket activity, or evidence writing in its present revision.
+See `pios-solo-c3-command-orchestration.md`.
+
 Only named confirmation may create the private Unix socket and perform one
 accepted plus one duplicate handoff, receipt validation, and local
 export/readback. The installed Corebox app may remain disconnected; a pure

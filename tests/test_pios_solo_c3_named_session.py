@@ -159,8 +159,9 @@ class C3NamedSessionPreviewTests(unittest.TestCase):
                     solo_revision="ef40daf",
                     corebox_revision="1566817",
                     execution_authorized=True,
+                    on_listener_ready=lambda _runtime, _socket: events.append("listener_ready"),
                 )
-            self.assertEqual(events[:2], ["accept", "same_euid"])
+            self.assertEqual(events[:3], ["listener_ready", "accept", "same_euid"])
             self.assertEqual(events[-1], "cleanup")
             self.assertTrue(connection.closed)
             self.assertEqual(connection.sent[0]["schema_version"], transport.CHALLENGE_SCHEMA)

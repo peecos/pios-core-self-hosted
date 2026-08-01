@@ -17,7 +17,7 @@ import stat
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -268,6 +268,7 @@ def execute_one_shot_session(
     solo_revision: str,
     corebox_revision: str,
     execution_authorized: bool,
+    on_listener_ready: Callable[[Path, Path], None] | None = None,
 ) -> dict[str, Any]:
     """Execute one future owner-confirmed session; never used by this revision's CLI.
 
@@ -296,6 +297,8 @@ def execute_one_shot_session(
     try:
         runtime = transport.create_private_runtime_directory(runtime_parent)
         listener, socket_path = transport.bind_private_unix_listener(runtime)
+        if on_listener_ready is not None:
+            on_listener_ready(runtime, socket_path)
         listener.settimeout(30)
         connection, _unused_peer_address = listener.accept()
         connection.settimeout(30)
