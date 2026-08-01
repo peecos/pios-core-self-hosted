@@ -1,8 +1,9 @@
 # PIOS Solo C3: Local-Transport Decision Package
 
-Status: **the narrow Solo-side Unix-socket foundation is implemented and
-locally tested; no C3 listener session runner, Corebox client, fixture handoff,
-or C3 proof is authorized or implemented.**
+Status: **the narrow Solo-side Unix-socket foundation and named-session
+preview/refusal runner are implemented and locally tested; no C3 listener
+session, Corebox socket client, fixture handoff, or C3 proof is authorized or
+implemented.**
 
 ## Purpose and Fixed Input
 
@@ -187,10 +188,17 @@ not read, transmit, or submit the prepared fixture. The module has no
 
 ## Planned Execution and Cleanup
 
-No C3 session runner exists. A later runner has a zero-write preview by
-default. It must validate exact inputs, no TCP listener, socket directory
-safety, peer-binding capability, no endpoint/credential fields, and evidence
-freshness before binding a socket.
+`scripts/run_pios_solo_c3_named_session.py` now provides the zero-write,
+preview/refusal runner. It reads only the fixed four-artifact fixture, invokes
+the existing C1 validation, rebuilds the reviewed Corebox/Solo request vector
+in memory, verifies the exact request/frame hashes, and emits sanitized plan
+facts. It creates no runtime directory, listener, connection, evidence
+directory, lifecycle state, or socket API event. Its confirmation flag refuses
+before preview or socket activity; this is not an execution switch.
+
+A later separately authorized session implementation must validate exact
+inputs, no TCP listener, socket directory safety, peer-binding capability, no
+endpoint/credential fields, and evidence freshness before binding a socket.
 
 Only named confirmation may create the private Unix socket and perform one
 accepted plus one duplicate handoff, receipt validation, and local
