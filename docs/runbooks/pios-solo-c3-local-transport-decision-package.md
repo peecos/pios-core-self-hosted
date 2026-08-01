@@ -33,6 +33,22 @@ and require the connecting peer to have the same local UID. Evidence records
 only `same_local_uid: true`; it must not retain the UID, socket path, or other
 personal machine identifier.
 
+On the current macOS/Python baseline, `getpeereid(3)` and `LOCAL_PEERCRED` are
+available at the operating-system layer, but Python does not expose
+`socket.getpeereid` or Linux `SO_PEERCRED`. A C3 implementation must therefore
+first select and test one small audited macOS peer-credential adapter: a
+minimal `getpeereid(3)` wrapper or a correctly parsed `LOCAL_PEERCRED`
+`xucred` result. It must compare the connected peer effective UID to the
+listener effective UID immediately after `accept()` and before a challenge.
+Failure to obtain or compare credentials is a refusal, never a best-effort
+fallback.
+
+Same-UID verification is an owner-account trust boundary, not proof that the
+peer is a particular signed Corebox process. C3 must state that any process
+running under that same local UID is inside its limited test trust domain. A
+stronger process/application identity claim would need a separately reviewed
+mechanism and is out of scope.
+
 ### Loopback Is Not Selected
 
 Plain `127.0.0.1` or `::1` TCP cannot establish equivalent local-user binding
@@ -84,10 +100,22 @@ evidence may retain only its SHA-256.
 
 ### One Request and Receipt Response
 
-Corebox may send exactly one `submit_fixed_fixture` request. It canonically
-binds protocol/schema versions, proof ID, fixture ID, challenge nonce, fixed
-receipt time, and SHA-256/byte counts of every fixed input. Solo recomputes all
+Corebox may send exactly one `submit_fixed_fixture` request followed only by
+one exact duplicate request in the same connection. It canonically binds
+protocol/schema versions, proof ID, fixture ID, challenge nonce, fixed receipt
+time, and SHA-256/byte counts of every fixed input. Solo recomputes all
 bindings and runs the existing C1 validator before calling the local lifecycle.
+
+The design has two distinct IDs:
+
+- `semantic_request_id`: deterministic hash of proof ID, protocol version,
+  fixture ID, four fixture integrity records, and receipt time; and
+- `connection_binding_hash`: hash of `semantic_request_id` plus the current
+  one-connection challenge nonce.
+
+The receipt response returns both. The second request must preserve both values
+and every fixture byte exactly. This makes the duplicate proof deterministic
+without allowing a request from an old connection to become valid.
 
 Request authentication is the conjunction of Unix socket permissions and
 same-UID peer verification, the fresh challenge, and exact proof/fixture hash
@@ -112,12 +140,17 @@ reference stops the proof.
 ### Replay Rules
 
 - First exact request may return `accepted`.
-- One exact repeat returns `duplicate` with the same receipt ID.
+- One exact repeat in the same connection returns `duplicate` with the same
+  receipt ID.
 - Changed envelope/original/hash under the same request ID is refused before
   lifecycle submission and never replaces local state.
-- Changed challenge, proof ID, fixture ID, receipt time, or protocol version
-  is refused. Cross-proof replay is forbidden.
-- The listener accepts no second fixture or request after the duplicate.
+- Any request bearing a challenge from a previous connection is stale and
+  refused before lifecycle submission. The C3 proof allows no reconnect after
+  challenge issuance.
+- Changed proof ID, fixture ID, receipt time, protocol version, or connection
+  binding is refused. Cross-proof replay is forbidden.
+- The listener accepts no second fixture, no ancillary data, and no request
+  after the required duplicate response.
 
 ## Planned Execution and Cleanup
 
@@ -130,6 +163,13 @@ Only named confirmation may create the private Unix socket and perform one
 accepted plus one duplicate handoff, receipt validation, and local
 export/readback. The installed Corebox app may remain disconnected; a pure
 local Corebox test harness is preferred.
+
+The implementation must create the socket under a restrictive umask, verify
+the new directory/socket ownership and actual `0700`/`0600` modes with
+`lstat`, and refuse a non-socket, symlink, unexpected path replacement, or
+wrong owner. Unix stream sockets can carry file descriptors through ancillary
+data; C3 must use ordinary `recv` framing only and reject any ancillary data or
+descriptor transfer. It must never call `recvmsg`/`sendmsg` for C3 frames.
 
 On pass or failure, close connections, stop the listener, unlink the socket,
 remove the private runtime directory, and prove none remains. Never retain a
@@ -146,7 +186,8 @@ occurs:
 - any TCP/UDP/IPv6/loopback/public listener attempt;
 - fixture/canonical/C1 validation mismatch or input outside the fixed fixture;
 - malformed or oversized frame, wrong challenge/proof/binding, or replay
-  mutation;
+  mutation; any reconnect after challenge issuance; or any ancillary data/file
+  descriptor transfer;
 - unexpected receipt/status or receipt verification failure;
 - endpoint, credential, network, app configuration, VM/Core/cloud, or
   personal-data action; or
@@ -156,10 +197,19 @@ occurs:
 
 Retain only harmless review material: fixed fixture copies/hashes, protocol and
 implementation revisions, frame limit, `same_local_uid: true`, challenge hash,
-request-binding hash, accepted/duplicate responses and validation, replay
-refusal, export/readback, zero network/cloud/VM/Core assertions, and cleanup
-result. Do not retain UID, socket path, nonce, endpoint, credential, app
-folder, or personal data.
+semantic request ID, connection-binding hash, accepted/duplicate responses and
+validation, replay refusal, export/readback, zero network/cloud/VM/Core
+assertions, and cleanup result. Do not retain UID, socket path, nonce,
+endpoint, credential, app folder, or personal data.
+
+## Narrow Design Review — 2026-08-01
+
+Local macOS documentation confirms that binding a Unix-domain socket creates a
+filesystem socket file which must be explicitly unlinked, that ordinary
+filesystem access controls apply to `connect`, and that effective peer
+credentials on connected Unix stream sockets are reliable at connect/listen
+time. The C3 amendments above turn those facts into explicit gates. No socket
+or platform credential call was made during this review.
 
 ## C3 Acceptance Boundary
 
