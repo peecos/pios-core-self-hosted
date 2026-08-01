@@ -32,7 +32,7 @@ zero-write preview has printed the exact input hashes:
 | Proof ID | One new collision-free ID, for example `c2-corebox-harmless-YYYYMMDD-r1`. |
 | Fixture | One newly generated, generated-harmless Corebox transport fixture, not the earlier C1 evidence item, an app folder item, or an owner capture. |
 | Fixture source | A named Corebox commit and local fixture-export command/harness that calls `CoreboxSyntheticTransport`; no installed app connection is required. |
-| Exact input bindings | Previewed envelope SHA-256/byte count, original SHA-256/byte count, fixture-manifest SHA-256, and fixed receipt time. |
+| Exact input bindings | Previewed envelope, original, zero-write-preview, and fixture-manifest SHA-256/byte counts, plus a fixed owner-approved receipt time. |
 | Solo revision | The committed Solo revision containing the C1 contract to be exercised. |
 | Evidence destination | `Storage-wiki/Storage/Other/pios-core/self-hosted-vm/c2-synthetic-proof/<proof-id>/`. The directory must not already exist. |
 | Retention | Retain only the verified harmless input, receipts, export/readback evidence, result manifest, and sanitised diagnostics in that evidence directory. |
@@ -52,16 +52,17 @@ The Corebox side supplies a new local input directory containing only:
 fixture-manifest.json
 original.bin
 envelope.json
+corebox-c2-zero-write-preview.json
 ```
 
 `fixture-manifest.json` must bind:
 
-- the named proof ID and `generated_harmless` classification;
+- the fixture ID, `prepared_not_authorized` status, and
+  `generated_harmless` classification;
 - the Corebox commit and the fact that `CoreboxSyntheticTransport` generated
   the envelope;
 - the C1 profile `pios_synthetic_source_ingress_v1`;
 - SHA-256 and byte counts for `original.bin` and canonical `envelope.json`;
-- a fixed UTC whole-second receipt timestamp; and
 - all-false assertions for endpoint, transport, credentials, enrollment,
   personal data, app networking, Owner Bind, Core API, connector, scheduler,
   hydration, migration, and source-decommission activity.
@@ -73,7 +74,10 @@ or any owner content. The C1 envelope validator is the authoritative
 path-free/integrity gate.
 
 The fixture exporter is outside the Solo runner. The runner consumes these
-three artifacts exactly and does not read Corebox state or invoke an app.
+four artifacts exactly and does not read Corebox state or invoke an app. The
+fixture need not contain a proof ID or receipt clock: those are separately
+supplied by the named owner decision and bound as exact runner arguments,
+without changing the fixture.
 
 ## Future Runner Interface
 
@@ -94,7 +98,9 @@ python3 scripts/run_pios_solo_c2_synthetic_proof.py \
   --evidence-dir '<Storage-wiki>/Storage/Other/pios-core/self-hosted-vm/c2-synthetic-proof/<approved-proof-id>' \
   --expected-envelope-sha256 <approved-sha256> \
   --expected-original-sha256 <approved-sha256> \
+  --expected-zero-write-preview-sha256 <approved-sha256> \
   --expected-fixture-manifest-sha256 <approved-sha256> \
+  --receipt-recorded-at <approved-UTC-whole-second> \
   --confirm-c2-local-synthetic-proof
 ```
 
@@ -112,8 +118,11 @@ After confirmed preflight, the runner uses isolated temporary directories under
 `/private/tmp` with restrictive permissions. It performs these local checks in
 order:
 
-1. Verify the fixture manifest, fixed hash bindings, all-false gates, safe
-   identifiers, and absence of forbidden transport values.
+1. Verify every manifest-listed artifact and its fixed hash binding. Require
+   `prepared_not_authorized` fixture status, `local_fixture_export: true`, all
+   other authorization gates false, and a zero-write preview with zero network
+   and cloud calls. Validate safe identifiers and absence of forbidden
+   transport values.
 2. Parse `envelope.json`; require that its raw bytes equal B1 canonical JSON
    bytes and that `validate_synthetic_envelope(envelope, original)` passes.
 3. In a fresh main lifecycle root, submit once with the fixed receipt time;
@@ -145,7 +154,7 @@ subprocesses, cloud CLIs, or app binaries. A guard failure is a stop condition.
 The evidence destination is outside the VM image and Core root. On success it
 retains only harmless generated data:
 
-- the exact three input artifacts;
+- the exact four input artifacts;
 - accepted and duplicate receipt artifacts;
 - exported receipt/readback result and synthetic outcome summaries;
 - the canonical hash manifest, runner version/revision, and sanitised log; and
