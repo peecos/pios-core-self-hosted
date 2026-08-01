@@ -54,6 +54,25 @@ Its planned future session contract is fixed as:
 revision. It stops before preview, runtime creation, socket API use, fixture
 submission, or lifecycle work. It is not an execution path.
 
+## Bounded Execution Path (Implemented but Inactive)
+
+The runner now also contains an internal one-shot server state machine for a
+future named proof. It is not reachable from the CLI and requires an explicit
+`execution_authorized=True` argument supplied only by a future reviewed proof
+entry point. The current CLI still refuses every confirmation attempt.
+
+When later authorized, the state machine will create a fresh private runtime,
+bind one `AF_UNIX` stream listener, call same-EUID verification immediately
+after `accept()`, issue one challenge, validate one fixed request before
+lifecycle work, return one accepted response, require one byte-identical
+duplicate request, return one duplicate response, then clean the connection,
+listener, socket, runtime, and disposable lifecycle root. It uses ordinary
+bounded `recv`/`sendall` framing only; no ancillary descriptor APIs are used.
+
+The implementation was validated only through mocked listener/channel and
+lifecycle seams. No actual listener, `accept()`, connection, fixture
+submission, receipt exchange, or lifecycle proof was run.
+
 ## Still Not Authorized
 
 No Unix-socket session, Corebox client connection, fixture submission,

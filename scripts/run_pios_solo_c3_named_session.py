@@ -10,20 +10,24 @@ present only to refuse clearly until a separate named execution approval.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import stat
 import sys
+import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts import pios_canonical_source_primitives as primitives
 from scripts import pios_c3_local_transport as transport
+from scripts import pios_synthetic_source_ingress as ingress
 from scripts import run_pios_solo_c2_synthetic_proof as c2
 
 RUNNER_PREVIEW_SCHEMA = "pios_solo_c3_named_session_zero_write_preview_v1"
+SESSION_RESULT_SCHEMA = "pios_solo_c3_named_session_result_v1"
 SOLO_FOUNDATION_REVISION = "45c5bac"
 COREBOX_CONTRACT_REVISION = "1db18d5"
 REVIEW_PROOF_ID = "c3-corebox-local-20260801-r1"
@@ -49,6 +53,10 @@ class C3NamedSessionPreviewError(ValueError):
 
 class C3NamedSessionExecutionNotAuthorized(C3NamedSessionPreviewError):
     """Raised for every execution attempt in this preview/refusal revision."""
+
+
+class C3NamedSessionProtocolError(C3NamedSessionPreviewError):
+    """Raised when an enabled future one-shot session breaks its strict contract."""
 
 
 def _validate_fixed_fixture_path_safety(input_dir: Path) -> None:
@@ -166,6 +174,152 @@ def refuse_named_session_execution() -> None:
     raise C3NamedSessionExecutionNotAuthorized(
         "C3 named-session execution requires a separate owner-approved proof decision"
     )
+
+
+def _load_validated_lifecycle_input(input_dir: Path) -> tuple[dict[str, Any], bytes]:
+    """Read the already C1-validated harmless envelope/original for future use."""
+    try:
+        envelope_raw = (input_dir / "envelope.json").read_bytes()
+        envelope = primitives.canonical_json_value(json.loads(envelope_raw))
+        original = (input_dir / "original.bin").read_bytes()
+    except (OSError, ValueError) as exc:
+        raise C3NamedSessionProtocolError("fixed fixture lifecycle input cannot be read") from exc
+    if primitives.canonical_json_bytes(envelope) != envelope_raw:
+        raise C3NamedSessionProtocolError("fixed envelope is not canonical")
+    try:
+        return ingress.validate_synthetic_envelope(envelope, original), original
+    except ingress.SyntheticIngressError as exc:
+        raise C3NamedSessionProtocolError("fixed fixture C1 envelope validation failed") from exc
+
+
+def _require_lifecycle_result(result: Mapping[str, Any], expected_status: str) -> dict[str, Any]:
+    if not isinstance(result, Mapping) or result.get("status") != expected_status:
+        raise C3NamedSessionProtocolError(f"local lifecycle did not return {expected_status}")
+    receipt = result.get("receipt")
+    if not isinstance(receipt, Mapping):
+        raise C3NamedSessionProtocolError(f"local lifecycle {expected_status} result has no receipt")
+    return dict(receipt)
+
+
+def _start_one_fixture_lifecycle(
+    *, lifecycle_root: Path, envelope: Mapping[str, Any], original: bytes, receipt_recorded_at: str
+) -> tuple[ingress.LocalSyntheticSourceIngress, dict[str, Any]]:
+    """Start future local lifecycle only after the first bound request validates."""
+    local = ingress.LocalSyntheticSourceIngress(lifecycle_root)
+    accepted = _require_lifecycle_result(
+        local.submit(envelope, original, receipt_recorded_at=receipt_recorded_at), "accepted"
+    )
+    accepted = ingress.verify_synthetic_receipt(envelope, original, accepted)
+    return local, accepted
+
+
+def _finish_one_fixture_lifecycle(
+    *, local: ingress.LocalSyntheticSourceIngress, envelope: Mapping[str, Any], original: bytes, accepted: Mapping[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Finish future lifecycle only after the exact duplicate request validates."""
+    duplicate = _require_lifecycle_result(local.submit(envelope, original), "duplicate")
+    duplicate = ingress.verify_synthetic_receipt(envelope, original, duplicate)
+    if duplicate["receipt_id"] != accepted["receipt_id"]:
+        raise C3NamedSessionProtocolError("accepted and duplicate lifecycle receipts differ")
+    readback = local.readback_original(envelope, original, accepted)
+    if primitives.integrity_for_bytes(readback) != primitives.integrity_for_bytes(original):
+        raise C3NamedSessionProtocolError("local lifecycle original readback differs")
+    exported = local.export()
+    if exported.get("status") != "passed" or exported.get("cursor") != 1:
+        raise C3NamedSessionProtocolError("local lifecycle export is not one-receipt passed state")
+    return duplicate, exported
+
+
+def execute_one_shot_session(
+    *,
+    input_dir: Path,
+    proof_id: str,
+    receipt_recorded_at: str,
+    runtime_parent: Path,
+    execution_authorized: bool,
+) -> dict[str, Any]:
+    """Execute one future owner-confirmed session; never used by this revision's CLI.
+
+    The authorization argument is deliberately explicit so a future named proof
+    path cannot accidentally reuse the preview default. Tests mock every socket
+    primitive; this implementation is not invoked in the current checkpoint.
+    """
+    if execution_authorized is not True:
+        refuse_named_session_execution()
+    _validate_fixed_fixture_path_safety(input_dir)
+    _fixture_preview(input_dir)
+    envelope, original = _load_validated_lifecycle_input(input_dir)
+    if not runtime_parent.is_absolute() or not runtime_parent.is_dir():
+        raise C3NamedSessionProtocolError("C3 runtime parent must be an existing absolute directory")
+    runtime: Path | None = None
+    listener = None
+    connection = None
+    socket_path: Path | None = None
+    result: dict[str, Any] | None = None
+    try:
+        runtime = transport.create_private_runtime_directory(runtime_parent)
+        listener, socket_path = transport.bind_private_unix_listener(runtime)
+        listener.settimeout(30)
+        connection, _unused_peer_address = listener.accept()
+        # This must remain the first action after accept; do not retain peer data.
+        transport.require_same_effective_uid(connection)
+        challenge = transport.build_challenge(
+            proof_id=proof_id,
+            fixture_manifest_sha256=transport.fixed_c2_fixture_integrities()["fixture_manifest"]["sha256"],
+        )
+        transport.send_canonical_frame(connection, challenge)
+        request = transport.receive_canonical_frame(connection)
+        request = transport.validate_fixed_fixture_request(
+            request,
+            challenge=challenge,
+            fixture_integrities=transport.fixed_c2_fixture_integrities(),
+            receipt_recorded_at=receipt_recorded_at,
+        )
+        with tempfile.TemporaryDirectory(prefix="lifecycle-", dir=runtime) as lifecycle_directory:
+            local, accepted = _start_one_fixture_lifecycle(
+                lifecycle_root=Path(lifecycle_directory),
+                envelope=envelope,
+                original=original,
+                receipt_recorded_at=receipt_recorded_at,
+            )
+            accepted_response = transport.build_receipt_response(
+                semantic_request_id=request["semantic_request_id"], status="accepted", receipt=accepted
+            )
+            transport.send_canonical_frame(connection, accepted_response)
+            duplicate_request = transport.receive_canonical_frame(connection)
+            transport.require_exact_duplicate(request, duplicate_request)
+            _duplicate_from_lifecycle, exported = _finish_one_fixture_lifecycle(
+                local=local, envelope=envelope, original=original, accepted=accepted
+            )
+            duplicate_response = transport.build_receipt_response(
+                semantic_request_id=request["semantic_request_id"], status="duplicate", receipt=accepted
+            )
+            transport.send_canonical_frame(connection, duplicate_response)
+            result = {
+                "schema_version": SESSION_RESULT_SCHEMA,
+                "status": "passed",
+                "proof_id": proof_id,
+                "receipt_recorded_at": receipt_recorded_at,
+                "same_local_uid": True,
+                "semantic_request_id": request["semantic_request_id"],
+                "connection_binding_hash": request["connection_binding_hash"],
+                "receipt_id": accepted["receipt_id"],
+                "export_cursor": exported["cursor"],
+                "network_or_cloud_calls": 0,
+                "vm_or_core_runtime_changes": 0,
+            }
+    finally:
+        if connection is not None:
+            connection.close()
+        if listener is not None and runtime is not None and socket_path is not None:
+            transport.cleanup_private_unix_listener(listener, runtime, socket_path)
+            if result is not None:
+                result["cleanup"] = "passed"
+        elif runtime is not None:
+            transport.cleanup_private_runtime_directory(runtime)
+    if result is None:
+        raise C3NamedSessionProtocolError("C3 session completed without a result")
+    return result
 
 
 def install_no_session_audit_guard() -> None:

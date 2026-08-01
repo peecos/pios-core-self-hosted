@@ -30,6 +30,7 @@ from scripts import pios_canonical_source_primitives as primitives
 PROTOCOL = "pios_solo_c3_local_transport_v1"
 CHALLENGE_SCHEMA = "pios_solo_c3_local_challenge_v1"
 REQUEST_SCHEMA = "pios_solo_c3_local_request_v1"
+RECEIPT_RESPONSE_SCHEMA = "pios_solo_c3_local_receipt_response_v1"
 MAX_FRAME_BYTES = 16 * 1024
 FIXTURE_ID = "corebox_c2_harmless_text_v1"
 PROOF_ID_RE = re.compile(r"c3-[a-z0-9]+(?:-[a-z0-9]+){2,63}")
@@ -140,6 +141,14 @@ def create_private_runtime_directory(parent: Path) -> Path:
         raise
 
 
+def cleanup_private_runtime_directory(runtime: Path) -> None:
+    """Remove only an empty verified private C3 runtime directory."""
+    runtime = _validate_private_directory(Path(runtime))
+    os.rmdir(runtime)
+    if runtime.exists():
+        raise C3TransportError("C3 runtime cleanup did not remove the private directory")
+
+
 def _unlink_owned_socket(socket_path: Path) -> None:
     try:
         details = os.lstat(socket_path)
@@ -225,6 +234,36 @@ def validate_canonical_frame(frame: bytes) -> dict[str, Any]:
     if not isinstance(value, dict) or _canonical_frame_value(value) != body:
         raise C3TransportError("C3 frame JSON is not canonical")
     return value
+
+
+def _receive_exact(sock: socket.socket, length: int) -> bytes:
+    if not isinstance(length, int) or length < 0:
+        raise C3TransportError("C3 frame length is invalid")
+    chunks: list[bytes] = []
+    remaining = length
+    while remaining:
+        chunk = sock.recv(remaining)
+        if not chunk:
+            raise C3TransportError("C3 peer closed before one complete frame")
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks)
+
+
+def receive_canonical_frame(sock: socket.socket) -> dict[str, Any]:
+    """Read one bounded frame with ordinary ``recv`` only; no ancillary data."""
+    _require_unix_stream(sock)
+    prefix = _receive_exact(sock, 4)
+    length = int.from_bytes(prefix, byteorder="big")
+    if length > MAX_FRAME_BYTES:
+        raise C3TransportError("C3 frame length exceeds the 16 KiB limit")
+    return validate_canonical_frame(prefix + _receive_exact(sock, length))
+
+
+def send_canonical_frame(sock: socket.socket, value: Mapping[str, Any]) -> None:
+    """Send one bounded frame with ordinary ``sendall`` only; no ancillary data."""
+    _require_unix_stream(sock)
+    sock.sendall(encode_canonical_frame(value))
 
 
 def _proof_id(value: str) -> str:
@@ -384,3 +423,34 @@ def require_exact_duplicate(first_request: Mapping[str, Any], duplicate_request:
     if duplicate != first:
         raise C3TransportError("C3 duplicate request is not an exact canonical repeat")
     return primitives.canonical_json_value(first_request)
+
+
+def build_receipt_response(
+    *, semantic_request_id: str, status: str, receipt: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Build the only accepted/duplicate response shape for a future C3 session."""
+    if status not in {"accepted", "duplicate"}:
+        raise C3TransportError("C3 receipt response status must be accepted or duplicate")
+    if not isinstance(receipt, Mapping):
+        raise C3TransportError("C3 receipt response requires one receipt object")
+    if not isinstance(semantic_request_id, str) or not re.fullmatch(r"req_[0-9a-f]{64}", semantic_request_id):
+        raise C3TransportError("C3 semantic request ID is invalid")
+    return {
+        "schema_version": RECEIPT_RESPONSE_SCHEMA,
+        "request_id": semantic_request_id,
+        "status": status,
+        "receipt": primitives.canonical_json_value(receipt),
+    }
+
+
+def validate_receipt_response(
+    response: Mapping[str, Any], *, semantic_request_id: str, status: str
+) -> dict[str, Any]:
+    expected = build_receipt_response(
+        semantic_request_id=semantic_request_id,
+        status=status,
+        receipt=response.get("receipt") if isinstance(response, Mapping) else {},
+    )
+    if not isinstance(response, Mapping) or primitives.canonical_json_value(response) != expected:
+        raise C3TransportError("C3 receipt response is not bound to the request and status")
+    return expected

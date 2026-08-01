@@ -122,6 +122,23 @@ class C3LocalTransportFoundationTests(unittest.TestCase):
                 receipt_recorded_at="2026-08-01T00:00:03Z",
             )
 
+    def test_receipt_response_binds_only_one_request_and_expected_status(self) -> None:
+        request = self.request()
+        receipt = {"schema_version": "pios_synthetic_source_ingress_receipt_v1", "receipt_id": "rcpt_" + "a" * 64}
+        response = c3.build_receipt_response(
+            semantic_request_id=request["semantic_request_id"], status="accepted", receipt=receipt
+        )
+        self.assertEqual(
+            c3.validate_receipt_response(
+                response, semantic_request_id=request["semantic_request_id"], status="accepted"
+            ),
+            response,
+        )
+        with self.assertRaises(c3.C3TransportError):
+            c3.validate_receipt_response(
+                response, semantic_request_id=request["semantic_request_id"], status="duplicate"
+            )
+
     def test_module_cannot_add_network_or_ancillary_transport(self) -> None:
         source = Path(c3.__file__).read_text(encoding="utf-8")
         tree = ast.parse(source)

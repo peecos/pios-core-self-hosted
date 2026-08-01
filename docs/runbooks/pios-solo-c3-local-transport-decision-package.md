@@ -200,6 +200,11 @@ A later separately authorized session implementation must validate exact
 inputs, no TCP listener, socket directory safety, peer-binding capability, no
 endpoint/credential fields, and evidence freshness before binding a socket.
 
+The bounded server state machine is now implemented behind an inactive internal
+authorization argument. Its CLI remains preview/refusal-only. Local tests use
+mocks and do not open an AF_UNIX connection; a future named owner decision is
+still required before any listener/socket/session use.
+
 Only named confirmation may create the private Unix socket and perform one
 accepted plus one duplicate handoff, receipt validation, and local
 export/readback. The installed Corebox app may remain disconnected; a pure
