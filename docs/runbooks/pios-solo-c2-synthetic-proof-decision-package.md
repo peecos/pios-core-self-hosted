@@ -79,19 +79,23 @@ fixture need not contain a proof ID or receipt clock: those are separately
 supplied by the named owner decision and bound as exact runner arguments,
 without changing the fixture.
 
-## Future Runner Interface
+## Preview Runner Interface
 
-No runner exists yet. The following is a planned interface, not an executable
-command:
+`scripts/run_pios_solo_c2_synthetic_proof.py` now implements only the
+zero-write preview. It validates the immutable four-artifact fixture and
+prints canonical preview JSON without creating a lifecycle root, receipt,
+evidence directory, or other output. It installs a CLI-process audit guard
+that rejects socket/subprocess events.
 
 ```sh
 python3 scripts/run_pios_solo_c2_synthetic_proof.py \
-  --proof-id <approved-proof-id> \
   --input-dir <approved-local-fixture-directory> \
-  --evidence-dir '<Storage-wiki>/Storage/Other/pios-core/self-hosted-vm/c2-synthetic-proof/<approved-proof-id>' \
-  --dry-run
+  --expected-envelope-sha256 <previewed-sha256> \
+  --expected-original-sha256 <previewed-sha256> \
+  --expected-zero-write-preview-sha256 <previewed-sha256> \
+  --expected-fixture-manifest-sha256 <previewed-sha256>
 
-# Only after the owner approves the previewed exact hashes:
+# The current runner deliberately rejects this future execution flag:
 python3 scripts/run_pios_solo_c2_synthetic_proof.py \
   --proof-id <approved-proof-id> \
   --input-dir <approved-local-fixture-directory> \
@@ -104,9 +108,10 @@ python3 scripts/run_pios_solo_c2_synthetic_proof.py \
   --confirm-c2-local-synthetic-proof
 ```
 
-`--dry-run` is the default. It reads only the input artifacts, validates the
-manifest and C1 envelope bindings, prints the exact plan/hashes, and creates no
-lifecycle root, receipt, evidence directory, or Core/VM state.
+The preview is the default and only implemented mode. The confirmation flag
+hard-stops before reading or writing the fixture because lifecycle execution is
+not authorized in this implementation. A later separate execution patch and
+named owner authorization are both required.
 
 The confirmation flag alone is insufficient: the runner must require exact
 approved hashes and a new evidence destination. It must reject a changed input
