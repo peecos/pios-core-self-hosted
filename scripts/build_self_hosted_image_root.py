@@ -133,6 +133,7 @@ def build_image_manifest(output_dir: Path) -> dict[str, Any]:
             "docs/runbooks/*pilot*",
             "owner data",
             "generated key material",
+            "C3 transport, socket, orchestration, and execution tooling",
             "AWS account ids, ARNs, bucket names, or profile names",
         ],
         "offline_documentation": {

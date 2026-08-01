@@ -147,15 +147,29 @@ class PiosSelfHostedVmTests(unittest.TestCase):
 
     def test_image_root_build_includes_only_present_data_empty_sources(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
+            image_root = Path(directory) / "image-root"
             result = build_self_hosted_image_root(
-                output_dir=Path(directory) / "image-root",
+                output_dir=image_root,
                 force=False,
                 run_hygiene=True,
             )
             self.assertEqual(result["hygiene"]["status"], "passed")
             self.assertIn("scripts/pios_google_metadata_init.py", result["copied"])
             self.assertIn("docs/starter", result["copied"])
-            self.assertTrue((Path(directory) / "image-root/docs/starter/README.md").is_file())
+            self.assertTrue((image_root / "docs/starter/README.md").is_file())
+
+            included_files = {
+                str(path.relative_to(image_root))
+                for path in image_root.rglob("*")
+                if path.is_file()
+            }
+            self.assertFalse(any("c3" in path.lower() for path in included_files))
+
+            manifest = json.loads((image_root / "IMAGE_MANIFEST.json").read_text())
+            self.assertIn(
+                "C3 transport, socket, orchestration, and execution tooling",
+                manifest["excluded_from_image"],
+            )
 
     def test_candidate_qemu_command_disables_outbound_network_by_default(self) -> None:
         command = build_qemu_command(

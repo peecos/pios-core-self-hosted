@@ -1,6 +1,6 @@
 # PIOS Starter v0.1.0 Release Readiness
 
-Status: planned stable release; not published
+Status: stable scope frozen; candidate build and publication pending
 
 ## Release Promise
 
@@ -35,6 +35,11 @@ Excluded:
 
 C3 local companion transport is useful follow-on work but is not a release
 prerequisite for this neutral Starter scope.
+
+The image-root allowlist and its regression coverage exclude all C3 socket,
+transport, orchestration, and execution tooling. C3 source may remain in the
+development repository as dormant conformance work, but it is not a runtime
+capability or public availability claim of `v0.1.0`.
 
 ## Stable Release Gate
 
