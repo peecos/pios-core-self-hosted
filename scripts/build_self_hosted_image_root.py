@@ -32,6 +32,7 @@ INCLUDED_FILES = (
 )
 
 INCLUDED_DIRS = (
+    "docs/starter",
     "schemas",
 )
 
@@ -134,6 +135,10 @@ def build_image_manifest(output_dir: Path) -> dict[str, Any]:
             "generated key material",
             "AWS account ids, ARNs, bucket names, or profile names",
         ],
+        "offline_documentation": {
+            "path": "docs/starter",
+            "scope": "release-bound starter orientation only; canonical framework documentation remains external",
+        },
         "authorization": {
             "hydrate_bundle": False,
             "connector_sync": False,

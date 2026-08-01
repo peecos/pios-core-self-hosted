@@ -51,6 +51,7 @@ REQUIRED_PATHS = {
     "scripts/validate_core_bundle.py",
     "scripts/export_core_bundle.py",
     "schemas",
+    "docs/starter/README.md",
     "self-hosted-provisioning-manifest.example.json",
     "IMAGE_MANIFEST.json",
 }

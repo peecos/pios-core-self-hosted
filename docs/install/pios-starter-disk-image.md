@@ -16,6 +16,25 @@ pios-starter-disk-image-YYYYMMDD-release-manifest.json
 pios-starter-disk-image-YYYYMMDD.qcow2.sha256
 ```
 
+## Offline Starter Documentation
+
+Each future Starter release includes a small, immutable orientation bundle at
+`/opt/pios-core/docs/starter/`. It is included in the image-root manifest and
+therefore bound to the same reviewed source revision as the runtime scripts.
+It contains:
+
+- release-bound Starter orientation and boundary information;
+- the compact runtime profile: five zones, `core://` logical references,
+  provenance, and projection discipline;
+- local health, recovery, and verification orientation;
+- the Owner Bind boundary; and
+- the optional Corebox companion boundary.
+
+This bundle is deliberately not the whole PIOS 2.0 master, a mutable local
+wiki, or an owner runbook. The canonical framework documentation remains the
+separately versioned PIOS source. The image bundle is an offline orientation
+aid, not a second documentation authority.
+
 ## Neutral Golden Starter Boundary
 
 Before **Owner Bind**, work may:

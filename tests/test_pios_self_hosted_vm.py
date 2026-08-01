@@ -154,6 +154,8 @@ class PiosSelfHostedVmTests(unittest.TestCase):
             )
             self.assertEqual(result["hygiene"]["status"], "passed")
             self.assertIn("scripts/pios_google_metadata_init.py", result["copied"])
+            self.assertIn("docs/starter", result["copied"])
+            self.assertTrue((Path(directory) / "image-root/docs/starter/README.md").is_file())
 
     def test_candidate_qemu_command_disables_outbound_network_by_default(self) -> None:
         command = build_qemu_command(

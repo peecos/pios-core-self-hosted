@@ -10,6 +10,7 @@ The image root should contain only:
 - a first-boot `pios-core-init` wrapper;
 - a generic self-hosted provisioning manifest example;
 - image metadata and local setup instructions.
+- a small offline Starter orientation bundle under `docs/starter/`.
 
 It must not contain:
 
@@ -31,3 +32,9 @@ Build a candidate image root with:
 The resulting directory is the input for a future VM image builder such as
 Packer. The builder should copy it into `/opt/pios-core` inside the VM and make
 `/opt/pios-core/bin/pios-core-init` available on the path.
+
+`docs/starter/` is release-bound orientation material, not a copy of the full
+PIOS framework. It documents the data-empty boundary, local health and recovery
+orientation, Owner Bind, and the separate Corebox companion boundary. The
+canonical PIOS framework documentation remains the versioned source published
+outside the image.
