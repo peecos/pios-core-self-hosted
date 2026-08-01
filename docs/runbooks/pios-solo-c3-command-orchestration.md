@@ -43,8 +43,10 @@ The disabled internal function would perform exactly this order:
 5. accept one same-EUID AF_UNIX peer, apply timeouts, and exchange one accepted
    request plus one exact duplicate;
 6. compare the Corebox and Solo receipt IDs;
-7. close the child/connection/listener, remove socket/runtime/lifecycle roots,
-   and retain only sanitized Solo evidence.
+7. close the child/connection/listener and remove socket/runtime/lifecycle
+   roots; and
+8. retain a passed evidence record only after the Corebox child exits cleanly
+   and its returned receipt ID exactly matches Solo's cleaned session result.
 
 The child tool independently validates the named command shape and remains
 hard-disabled before it creates its AF_UNIX channel or reads the fixture.

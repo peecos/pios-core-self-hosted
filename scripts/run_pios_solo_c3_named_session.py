@@ -269,6 +269,7 @@ def execute_one_shot_session(
     corebox_revision: str,
     execution_authorized: bool,
     on_listener_ready: Callable[[Path, Path], None] | None = None,
+    retain_evidence: bool = True,
 ) -> dict[str, Any]:
     """Execute one future owner-confirmed session; never used by this revision's CLI.
 
@@ -366,10 +367,18 @@ def execute_one_shot_session(
             transport.cleanup_private_runtime_directory(runtime)
     if result is None:
         raise C3NamedSessionProtocolError("C3 session completed without a result")
+    if retain_evidence:
+        retain_session_evidence(result=result, evidence_dir=evidence_dir)
+    return result
+
+
+def retain_session_evidence(*, result: Mapping[str, Any], evidence_dir: Path) -> None:
+    """Retain one sanitized final result only after all required parties agree."""
+    if not isinstance(result, Mapping) or result.get("status") != "passed" or result.get("cleanup") != "passed":
+        raise C3NamedSessionProtocolError("C3 evidence requires a passed, cleaned session result")
     evidence = _require_fresh_evidence_destination(evidence_dir)
     evidence.mkdir()
     (evidence / "c3-session-result.json").write_bytes(primitives.canonical_json_bytes(result))
-    return result
 
 
 def install_no_session_audit_guard() -> None:

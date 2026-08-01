@@ -181,6 +181,7 @@ def execute_named_session(plan: NamedSessionPlan, *, execution_authorized: bool)
             corebox_revision=plan.corebox_revision,
             execution_authorized=True,
             on_listener_ready=start_corebox,
+            retain_evidence=False,
         )
         if child is None:
             raise C3CommandOrchestrationError("Corebox child was not started")
@@ -193,6 +194,7 @@ def execute_named_session(plan: NamedSessionPlan, *, execution_authorized: bool)
             raise C3CommandOrchestrationError("Corebox child did not return canonical session JSON") from exc
         if not isinstance(client_result, dict) or client_result.get("receipt_id") != result["receipt_id"]:
             raise C3CommandOrchestrationError("Corebox and Solo C3 receipt bindings differ")
+        session.retain_session_evidence(result=result, evidence_dir=plan.evidence_dir)
         return result
     finally:
         if child is not None and child.poll() is None:
