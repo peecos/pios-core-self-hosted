@@ -13,7 +13,7 @@ foundation, but retains only the challenge integrity and request/frame facts.
 The preview is pinned to:
 
 - Solo foundation `45c5bac`;
-- Corebox contract `1db18d5`;
+- Corebox preview contract `1db18d5` and execution client `1566817`;
 - proof-vector ID `c3-corebox-local-20260801-r1`;
 - receipt timestamp `2026-08-01T00:00:03Z`; and
 - the fixed review-vector request SHA-256
@@ -68,6 +68,12 @@ lifecycle work, return one accepted response, require one byte-identical
 duplicate request, return one duplicate response, then clean the connection,
 listener, socket, runtime, and disposable lifecycle root. It uses ordinary
 bounded `recv`/`sendall` framing only; no ancillary descriptor APIs are used.
+
+Before any future named execution, the runner requires explicit proof ID,
+receipt timestamp, absolute runtime parent, fresh evidence destination, Solo
+revision, and exactly the reviewed Corebox execution revision. It records only
+those revisions and sanitized lifecycle/root counts in the future result. The
+accepted connection also receives a 30-second timeout before peer verification.
 
 The implementation was validated only through mocked listener/channel and
 lifecycle seams. No actual listener, `accept()`, connection, fixture

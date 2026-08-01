@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import stat
 import sys
 import tempfile
@@ -29,7 +30,8 @@ from scripts import run_pios_solo_c2_synthetic_proof as c2
 RUNNER_PREVIEW_SCHEMA = "pios_solo_c3_named_session_zero_write_preview_v1"
 SESSION_RESULT_SCHEMA = "pios_solo_c3_named_session_result_v1"
 SOLO_FOUNDATION_REVISION = "45c5bac"
-COREBOX_CONTRACT_REVISION = "1db18d5"
+COREBOX_PREVIEW_CONTRACT_REVISION = "1db18d5"
+COREBOX_EXECUTION_REVISION = "1566817"
 REVIEW_PROOF_ID = "c3-corebox-local-20260801-r1"
 REVIEW_RECEIPT_RECORDED_AT = "2026-08-01T00:00:03Z"
 REVIEW_CHALLENGE_NONCE_HEX = "6161616161616161616161616161616161616161616161616161616161616161"
@@ -57,6 +59,21 @@ class C3NamedSessionExecutionNotAuthorized(C3NamedSessionPreviewError):
 
 class C3NamedSessionProtocolError(C3NamedSessionPreviewError):
     """Raised when an enabled future one-shot session breaks its strict contract."""
+
+
+def _require_revision(value: str, *, field: str) -> str:
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{7,40}", value):
+        raise C3NamedSessionProtocolError(f"{field} must be an explicit git revision")
+    return value
+
+
+def _require_fresh_evidence_destination(path: Path) -> Path:
+    path = Path(path)
+    if path.exists():
+        raise C3NamedSessionProtocolError("C3 evidence destination must not already exist")
+    if not path.parent.is_dir():
+        raise C3NamedSessionProtocolError("C3 evidence parent must already exist")
+    return path
 
 
 def _validate_fixed_fixture_path_safety(input_dir: Path) -> None:
@@ -138,7 +155,8 @@ def run_zero_write_preview(*, input_dir: Path) -> dict[str, Any]:
         "status": "preview_refusal_only",
         "revisions": {
             "solo_foundation_commit": SOLO_FOUNDATION_REVISION,
-            "corebox_contract_commit": COREBOX_CONTRACT_REVISION,
+            "corebox_preview_contract_commit": COREBOX_PREVIEW_CONTRACT_REVISION,
+            "corebox_execution_commit": COREBOX_EXECUTION_REVISION,
         },
         "fixture": fixture["fixture"],
         "c1_validation": fixture["checks"]["c1_envelope_validation"],
@@ -236,6 +254,9 @@ def execute_one_shot_session(
     proof_id: str,
     receipt_recorded_at: str,
     runtime_parent: Path,
+    evidence_dir: Path,
+    solo_revision: str,
+    corebox_revision: str,
     execution_authorized: bool,
 ) -> dict[str, Any]:
     """Execute one future owner-confirmed session; never used by this revision's CLI.
@@ -246,6 +267,10 @@ def execute_one_shot_session(
     """
     if execution_authorized is not True:
         refuse_named_session_execution()
+    _require_revision(solo_revision, field="solo_revision")
+    if _require_revision(corebox_revision, field="corebox_revision") != COREBOX_EXECUTION_REVISION:
+        raise C3NamedSessionProtocolError("C3 execution requires the reviewed Corebox client revision")
+    _require_fresh_evidence_destination(evidence_dir)
     _validate_fixed_fixture_path_safety(input_dir)
     _fixture_preview(input_dir)
     envelope, original = _load_validated_lifecycle_input(input_dir)
@@ -261,6 +286,7 @@ def execute_one_shot_session(
         listener, socket_path = transport.bind_private_unix_listener(runtime)
         listener.settimeout(30)
         connection, _unused_peer_address = listener.accept()
+        connection.settimeout(30)
         # This must remain the first action after accept; do not retain peer data.
         transport.require_same_effective_uid(connection)
         challenge = transport.build_challenge(
@@ -305,6 +331,12 @@ def execute_one_shot_session(
                 "connection_binding_hash": request["connection_binding_hash"],
                 "receipt_id": accepted["receipt_id"],
                 "export_cursor": exported["cursor"],
+                "ephemeral_lifecycle_roots_created": 1,
+                "ephemeral_lifecycle_roots_removed": 1,
+                "revisions": {
+                    "solo_revision": solo_revision,
+                    "corebox_revision": corebox_revision,
+                },
                 "network_or_cloud_calls": 0,
                 "vm_or_core_runtime_changes": 0,
             }
@@ -319,6 +351,9 @@ def execute_one_shot_session(
             transport.cleanup_private_runtime_directory(runtime)
     if result is None:
         raise C3NamedSessionProtocolError("C3 session completed without a result")
+    evidence = _require_fresh_evidence_destination(evidence_dir)
+    evidence.mkdir()
+    (evidence / "c3-session-result.json").write_bytes(primitives.canonical_json_bytes(result))
     return result
 
 
@@ -337,7 +372,36 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Preview/refuse one future C3 named Unix-socket session")
     parser.add_argument("--input-dir", required=True, type=Path)
     parser.add_argument("--confirm-c3-local-transport-proof", action="store_true")
+    parser.add_argument("--proof-id")
+    parser.add_argument("--receipt-recorded-at")
+    parser.add_argument("--runtime-parent", type=Path)
+    parser.add_argument("--evidence-dir", type=Path)
+    parser.add_argument("--solo-revision")
+    parser.add_argument("--corebox-revision")
     return parser.parse_args(argv)
+
+
+def require_named_execution_arguments(args: argparse.Namespace) -> None:
+    required = {
+        "proof_id": args.proof_id,
+        "receipt_recorded_at": args.receipt_recorded_at,
+        "runtime_parent": args.runtime_parent,
+        "evidence_dir": args.evidence_dir,
+        "solo_revision": args.solo_revision,
+        "corebox_revision": args.corebox_revision,
+    }
+    missing = sorted(name for name, value in required.items() if value is None)
+    if missing:
+        raise C3NamedSessionExecutionNotAuthorized(
+            "C3 named execution requires explicit " + ", ".join(missing)
+        )
+    transport._proof_id(args.proof_id)
+    transport._receipt_time(args.receipt_recorded_at)
+    _require_revision(args.solo_revision, field="solo_revision")
+    if _require_revision(args.corebox_revision, field="corebox_revision") != COREBOX_EXECUTION_REVISION:
+        raise C3NamedSessionExecutionNotAuthorized("C3 named execution requires the reviewed Corebox client revision")
+    if not args.runtime_parent.is_absolute() or not args.evidence_dir.is_absolute():
+        raise C3NamedSessionExecutionNotAuthorized("C3 runtime and evidence paths must be absolute")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -345,6 +409,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         install_no_session_audit_guard()
         if args.confirm_c3_local_transport_proof:
+            require_named_execution_arguments(args)
             refuse_named_session_execution()
         preview = run_zero_write_preview(input_dir=args.input_dir)
     except C3NamedSessionPreviewError as exc:

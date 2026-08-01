@@ -48,7 +48,11 @@ class C3NamedSessionPreviewTests(unittest.TestCase):
                 expected_fixture_manifest_sha256=fixed["fixture_manifest"]["sha256"],
             )
             self.assertEqual(preview["status"], "preview_refusal_only")
-            self.assertEqual(preview["revisions"], {"solo_foundation_commit": "45c5bac", "corebox_contract_commit": "1db18d5"})
+            self.assertEqual(preview["revisions"], {
+                "solo_foundation_commit": "45c5bac",
+                "corebox_preview_contract_commit": "1db18d5",
+                "corebox_execution_commit": "1566817",
+            })
             self.assertEqual(preview["review_vector"]["request_integrity"]["sha256"], c3_session.REVIEW_REQUEST_SHA256)
             self.assertEqual(preview["review_vector"]["frame_byte_count"], 1094)
             self.assertEqual(preview["review_vector"]["semantic_request_id"], c3_session.REVIEW_SEMANTIC_REQUEST_ID)
@@ -151,6 +155,9 @@ class C3NamedSessionPreviewTests(unittest.TestCase):
                     proof_id=c3_session.REVIEW_PROOF_ID,
                     receipt_recorded_at=c3_session.REVIEW_RECEIPT_RECORDED_AT,
                     runtime_parent=Path("/private/tmp"),
+                    evidence_dir=base / "evidence",
+                    solo_revision="195dffc",
+                    corebox_revision="1566817",
                     execution_authorized=True,
                 )
             self.assertEqual(events[:2], ["accept", "same_euid"])
@@ -171,9 +178,49 @@ class C3NamedSessionPreviewTests(unittest.TestCase):
                     proof_id=c3_session.REVIEW_PROOF_ID,
                     receipt_recorded_at=c3_session.REVIEW_RECEIPT_RECORDED_AT,
                     runtime_parent=Path("/private/tmp"),
+                    evidence_dir=Path("/private/tmp/not-used-evidence"),
+                    solo_revision="195dffc",
+                    corebox_revision="1566817",
                     execution_authorized=False,
                 )
             fixture_check.assert_not_called()
+
+    def test_execution_path_refuses_unreviewed_corebox_revision_before_fixture_or_runtime(self) -> None:
+        with mock.patch.object(c3_session, "_validate_fixed_fixture_path_safety") as fixture_check:
+            with self.assertRaises(c3_session.C3NamedSessionProtocolError):
+                c3_session.execute_one_shot_session(
+                    input_dir=Path("/not-used"),
+                    proof_id=c3_session.REVIEW_PROOF_ID,
+                    receipt_recorded_at=c3_session.REVIEW_RECEIPT_RECORDED_AT,
+                    runtime_parent=Path("/private/tmp"),
+                    evidence_dir=Path("/private/tmp/not-used-evidence"),
+                    solo_revision="195dffc",
+                    corebox_revision="deadbee",
+                    execution_authorized=True,
+                )
+            fixture_check.assert_not_called()
+
+    def test_named_confirmation_requires_all_explicit_bindings_and_reviewed_client_revision(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = self.fixture_directory(Path(directory))
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(
+                    c3_session.main(["--input-dir", str(fixture), "--confirm-c3-local-transport-proof"]),
+                    2,
+                )
+                self.assertEqual(
+                    c3_session.main([
+                        "--input-dir", str(fixture),
+                        "--confirm-c3-local-transport-proof",
+                        "--proof-id", c3_session.REVIEW_PROOF_ID,
+                        "--receipt-recorded-at", c3_session.REVIEW_RECEIPT_RECORDED_AT,
+                        "--runtime-parent", "/private/tmp",
+                        "--evidence-dir", str(Path(directory) / "evidence"),
+                        "--solo-revision", "195dffc",
+                        "--corebox-revision", "deadbee",
+                    ]),
+                    2,
+                )
 
 
 class FakeConnection:
@@ -183,6 +230,9 @@ class FakeConnection:
 
     def close(self) -> None:
         self.closed = True
+
+    def settimeout(self, _timeout: int) -> None:
+        return None
 
 
 class FakeListener:
