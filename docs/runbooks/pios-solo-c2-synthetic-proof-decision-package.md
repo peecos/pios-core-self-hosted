@@ -1,8 +1,8 @@
 # PIOS Solo C2: Synthetic-Proof Decision Package And Local Runner Plan
 
-Status: local execution implementation is ready and tested only with disposable
-harmless fixtures. The fixed Corebox fixture has **not** been submitted. C2
-remains one separately named, local-only, harmless lifecycle proof.
+Status: one approved local-only harmless C2 lifecycle proof has passed using
+the fixed Corebox fixture. C2 remains bounded to that completed proof; no
+personal capture or follow-on activation is implied.
 
 ## Purpose
 
@@ -204,3 +204,20 @@ receipt bindings are recorded, cleanup is proven, and an independent reviewer
 can read the retained harmless artifacts without a Corebox app, endpoint, or
 Core runtime. Passing C2 does not authorize any named personal capture. Stop
 for owner review before proposing a later personal-capture decision.
+
+## Confirmed Local Proof Result — 2026-08-01
+
+Owner authorized exactly one local proof:
+`c2-corebox-harmless-20260801-r1`, fixed receipt time
+`2026-08-01T00:00:03Z`, Solo revision `d9004c5`, and the reviewed immutable
+fixture hashes. It passed all planned accepted/duplicate/readback/export,
+denied, revoked, and retry checks. The runner retained only harmless evidence,
+reported zero network/cloud and VM/Core-runtime changes, and cleaned all four
+temporary lifecycle roots.
+
+Detailed retained evidence and independent verification:
+`Storage-wiki/Storage/Other/pios-core/self-hosted-vm/c2-synthetic-proof-execution-2026-08-01.md`.
+
+This completes the authorized C2 proof only. Do not reuse the fixture, rerun
+the proof, enable transport, or begin personal capture work without a new named
+owner decision.
