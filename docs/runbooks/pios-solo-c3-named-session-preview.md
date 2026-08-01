@@ -71,9 +71,11 @@ bounded `recv`/`sendall` framing only; no ancillary descriptor APIs are used.
 
 Before any future named execution, the runner requires explicit proof ID,
 receipt timestamp, absolute runtime parent, fresh evidence destination, Solo
-revision, and exactly the reviewed Corebox execution revision. It records only
-those revisions and sanitized lifecycle/root counts in the future result. The
-accepted connection also receives a 30-second timeout before peer verification.
+revision `ef40daf`, and Corebox execution revision `1566817`. Both revision
+values, the proof ID, and the receipt timestamp are rejected before any runtime
+directory can be made. It records only those revisions and sanitized
+lifecycle/root counts in the future result. The accepted connection also
+receives a 30-second timeout before peer verification.
 
 The implementation was validated only through mocked listener/channel and
 lifecycle seams. No actual listener, `accept()`, connection, fixture

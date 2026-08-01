@@ -30,6 +30,7 @@ from scripts import run_pios_solo_c2_synthetic_proof as c2
 RUNNER_PREVIEW_SCHEMA = "pios_solo_c3_named_session_zero_write_preview_v1"
 SESSION_RESULT_SCHEMA = "pios_solo_c3_named_session_result_v1"
 SOLO_FOUNDATION_REVISION = "45c5bac"
+SOLO_EXECUTION_REVISION = "ef40daf"
 COREBOX_PREVIEW_CONTRACT_REVISION = "1db18d5"
 COREBOX_EXECUTION_REVISION = "1566817"
 REVIEW_PROOF_ID = "c3-corebox-local-20260801-r1"
@@ -74,6 +75,15 @@ def _require_fresh_evidence_destination(path: Path) -> Path:
     if not path.parent.is_dir():
         raise C3NamedSessionProtocolError("C3 evidence parent must already exist")
     return path
+
+
+def _require_named_proof_and_receipt(proof_id: str, receipt_recorded_at: str) -> None:
+    """Convert transport validation failures into the C3 protocol boundary."""
+    try:
+        transport._proof_id(proof_id)
+        transport._receipt_time(receipt_recorded_at)
+    except transport.C3TransportError as exc:
+        raise C3NamedSessionProtocolError("C3 named proof identifier or receipt timestamp is invalid") from exc
 
 
 def _validate_fixed_fixture_path_safety(input_dir: Path) -> None:
@@ -267,9 +277,11 @@ def execute_one_shot_session(
     """
     if execution_authorized is not True:
         refuse_named_session_execution()
-    _require_revision(solo_revision, field="solo_revision")
+    if _require_revision(solo_revision, field="solo_revision") != SOLO_EXECUTION_REVISION:
+        raise C3NamedSessionProtocolError("C3 execution requires the reviewed Solo server revision")
     if _require_revision(corebox_revision, field="corebox_revision") != COREBOX_EXECUTION_REVISION:
         raise C3NamedSessionProtocolError("C3 execution requires the reviewed Corebox client revision")
+    _require_named_proof_and_receipt(proof_id, receipt_recorded_at)
     _require_fresh_evidence_destination(evidence_dir)
     _validate_fixed_fixture_path_safety(input_dir)
     _fixture_preview(input_dir)
@@ -395,9 +407,12 @@ def require_named_execution_arguments(args: argparse.Namespace) -> None:
         raise C3NamedSessionExecutionNotAuthorized(
             "C3 named execution requires explicit " + ", ".join(missing)
         )
-    transport._proof_id(args.proof_id)
-    transport._receipt_time(args.receipt_recorded_at)
-    _require_revision(args.solo_revision, field="solo_revision")
+    try:
+        _require_named_proof_and_receipt(args.proof_id, args.receipt_recorded_at)
+    except C3NamedSessionProtocolError as exc:
+        raise C3NamedSessionExecutionNotAuthorized(str(exc)) from exc
+    if _require_revision(args.solo_revision, field="solo_revision") != SOLO_EXECUTION_REVISION:
+        raise C3NamedSessionExecutionNotAuthorized("C3 named execution requires the reviewed Solo server revision")
     if _require_revision(args.corebox_revision, field="corebox_revision") != COREBOX_EXECUTION_REVISION:
         raise C3NamedSessionExecutionNotAuthorized("C3 named execution requires the reviewed Corebox client revision")
     if not args.runtime_parent.is_absolute() or not args.evidence_dir.is_absolute():

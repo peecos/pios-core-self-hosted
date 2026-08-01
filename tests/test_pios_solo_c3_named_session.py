@@ -156,7 +156,7 @@ class C3NamedSessionPreviewTests(unittest.TestCase):
                     receipt_recorded_at=c3_session.REVIEW_RECEIPT_RECORDED_AT,
                     runtime_parent=Path("/private/tmp"),
                     evidence_dir=base / "evidence",
-                    solo_revision="195dffc",
+                    solo_revision="ef40daf",
                     corebox_revision="1566817",
                     execution_authorized=True,
                 )
@@ -200,6 +200,36 @@ class C3NamedSessionPreviewTests(unittest.TestCase):
                 )
             fixture_check.assert_not_called()
 
+    def test_execution_path_refuses_unreviewed_solo_revision_before_fixture_or_runtime(self) -> None:
+        with mock.patch.object(c3_session, "_validate_fixed_fixture_path_safety") as fixture_check:
+            with self.assertRaises(c3_session.C3NamedSessionProtocolError):
+                c3_session.execute_one_shot_session(
+                    input_dir=Path("/not-used"),
+                    proof_id=c3_session.REVIEW_PROOF_ID,
+                    receipt_recorded_at=c3_session.REVIEW_RECEIPT_RECORDED_AT,
+                    runtime_parent=Path("/private/tmp"),
+                    evidence_dir=Path("/private/tmp/not-used-evidence"),
+                    solo_revision="195dffc",
+                    corebox_revision="1566817",
+                    execution_authorized=True,
+                )
+            fixture_check.assert_not_called()
+
+    def test_execution_path_rejects_invalid_named_input_before_fixture_or_runtime(self) -> None:
+        with mock.patch.object(c3_session, "_validate_fixed_fixture_path_safety") as fixture_check:
+            with self.assertRaises(c3_session.C3NamedSessionProtocolError):
+                c3_session.execute_one_shot_session(
+                    input_dir=Path("/not-used"),
+                    proof_id="invalid proof id",
+                    receipt_recorded_at=c3_session.REVIEW_RECEIPT_RECORDED_AT,
+                    runtime_parent=Path("/private/tmp"),
+                    evidence_dir=Path("/private/tmp/not-used-evidence"),
+                    solo_revision="ef40daf",
+                    corebox_revision="1566817",
+                    execution_authorized=True,
+                )
+            fixture_check.assert_not_called()
+
     def test_named_confirmation_requires_all_explicit_bindings_and_reviewed_client_revision(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             fixture = self.fixture_directory(Path(directory))
@@ -216,7 +246,7 @@ class C3NamedSessionPreviewTests(unittest.TestCase):
                         "--receipt-recorded-at", c3_session.REVIEW_RECEIPT_RECORDED_AT,
                         "--runtime-parent", "/private/tmp",
                         "--evidence-dir", str(Path(directory) / "evidence"),
-                        "--solo-revision", "195dffc",
+                        "--solo-revision", "ef40daf",
                         "--corebox-revision", "deadbee",
                     ]),
                     2,
