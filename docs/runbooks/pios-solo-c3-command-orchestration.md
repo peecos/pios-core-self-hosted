@@ -31,6 +31,12 @@ validation before it may consider listener setup. Its normal output is a
 sanitized `prepared_not_authorized` plan. It does not print local paths or a
 child command.
 
+The Corebox executable is bound at planning by device/inode, size, modification
+time, and SHA-256. At launch it is reopened with no-follow semantics and all
+bindings are rechecked. The verified bytes are copied to an exclusive private
+runtime snapshot, launched from that snapshot, and immediately unlinked. A
+planning-to-launch replacement therefore fails before `Popen`.
+
 ## Internal Future Sequence
 
 The disabled internal function would perform exactly this order:
@@ -46,7 +52,18 @@ The disabled internal function would perform exactly this order:
 7. close the child/connection/listener and remove socket/runtime/lifecycle
    roots; and
 8. retain a passed evidence record only after the Corebox child exits cleanly
-   and its returned receipt ID exactly matches Solo's cleaned session result.
+   and its complete canonical result exactly matches Solo's proof ID, semantic
+   request ID, connection-binding hash, receipt ID, and accepted/duplicate
+   statuses.
+
+Child stdout/stderr use temporary files rather than pipes, preventing a noisy
+child from blocking the protocol exchange. Output is bounded before parsing.
+A timeout triggers terminate, bounded wait, kill, and a final bounded wait.
+No child failure path can retain passed evidence.
+
+The evidence directory is created as owner-only `0700`; its identity is checked
+through a no-follow directory descriptor. The result is created exclusively
+through that descriptor as a regular owner-only `0600` file.
 
 The child tool independently validates the named command shape and remains
 hard-disabled before it creates its AF_UNIX channel or reads the fixture.
@@ -69,8 +86,11 @@ not self-declared by the code.
 
 The local tests cover exact revision binding, regular executable tool checks,
 sanitized preview output, confirmation refusal before child start, and the
-server listener-ready callback ordering. They do not open a real socket or
-start a Corebox child.
+server listener-ready callback ordering. They also cover prior proof reuse,
+executable replacement, launch failure, missing child callback, nonzero exit,
+timeout/terminate/kill, malformed/incomplete/noncanonical child JSON, receipt
+mismatch, and private exclusive evidence creation. They do not open a real
+socket or start a Corebox child.
 
 ## Non-Authorization
 

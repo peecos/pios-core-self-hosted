@@ -9,11 +9,13 @@ and review.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import stat
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -28,6 +30,8 @@ ORCHESTRATOR_SCHEMA = "pios_solo_c3_command_orchestration_plan_v1"
 SOLO_SERVER_REVISION = session.SOLO_EXECUTION_REVISION
 COREBOX_CLIENT_REVISION = session.COREBOX_EXECUTION_REVISION
 ORCHESTRATION_EXECUTION_ENABLED = False
+PRIOR_PROOF_IDS = frozenset({session.REVIEW_PROOF_ID})
+MAX_CHILD_OUTPUT_BYTES = 64 * 1024
 
 
 class C3CommandOrchestrationError(ValueError):
@@ -39,6 +43,15 @@ class C3CommandOrchestrationNotAuthorized(C3CommandOrchestrationError):
 
 
 @dataclass(frozen=True)
+class CoreboxToolIdentity:
+    device: int
+    inode: int
+    size: int
+    modified_ns: int
+    sha256: str
+
+
+@dataclass(frozen=True)
 class NamedSessionPlan:
     input_dir: Path
     proof_id: str
@@ -46,24 +59,50 @@ class NamedSessionPlan:
     runtime_parent: Path
     evidence_dir: Path
     corebox_tool: Path
+    corebox_tool_identity: CoreboxToolIdentity
     solo_revision: str
     corebox_revision: str
     fixture: dict[str, Any]
 
 
-def _require_corebox_tool(path: Path) -> Path:
+def _open_corebox_tool(path: Path) -> tuple[int, os.stat_result]:
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as exc:
+        raise C3CommandOrchestrationError("Corebox C3 tool cannot be opened safely") from exc
+    details = os.fstat(descriptor)
+    if not stat.S_ISREG(details.st_mode) or details.st_uid != os.geteuid() or details.st_mode & 0o111 == 0:
+        os.close(descriptor)
+        raise C3CommandOrchestrationError("Corebox C3 tool owner, type, or executable mode is unsafe")
+    return descriptor, details
+
+
+def _hash_descriptor(descriptor: int) -> str:
+    digest = hashlib.sha256()
+    os.lseek(descriptor, 0, os.SEEK_SET)
+    while chunk := os.read(descriptor, 1024 * 1024):
+        digest.update(chunk)
+    os.lseek(descriptor, 0, os.SEEK_SET)
+    return digest.hexdigest()
+
+
+def _require_corebox_tool(path: Path) -> tuple[Path, CoreboxToolIdentity]:
     path = Path(path)
     if not path.is_absolute():
         raise C3CommandOrchestrationError("Corebox C3 tool path must be absolute")
+    descriptor, details = _open_corebox_tool(path)
     try:
-        details = os.lstat(path)
-    except FileNotFoundError as exc:
-        raise C3CommandOrchestrationError("Corebox C3 tool is missing") from exc
-    if stat.S_ISLNK(details.st_mode) or not stat.S_ISREG(details.st_mode):
-        raise C3CommandOrchestrationError("Corebox C3 tool must be a regular non-symlink file")
-    if not os.access(path, os.X_OK):
-        raise C3CommandOrchestrationError("Corebox C3 tool must be executable")
-    return path
+        identity = CoreboxToolIdentity(
+            device=details.st_dev,
+            inode=details.st_ino,
+            size=details.st_size,
+            modified_ns=details.st_mtime_ns,
+            sha256=_hash_descriptor(descriptor),
+        )
+    finally:
+        os.close(descriptor)
+    return path, identity
 
 
 def build_named_session_plan(
@@ -86,9 +125,11 @@ def build_named_session_plan(
         session._require_fresh_evidence_destination(evidence_dir)
     except session.C3NamedSessionPreviewError as exc:
         raise C3CommandOrchestrationError("C3 named input binding is invalid") from exc
+    if proof_id in PRIOR_PROOF_IDS:
+        raise C3CommandOrchestrationError("C3 orchestration requires a new proof ID")
     if not runtime_parent.is_absolute() or not runtime_parent.is_dir() or runtime_parent.is_symlink():
         raise C3CommandOrchestrationError("C3 runtime parent must be an existing absolute non-symlink directory")
-    tool = _require_corebox_tool(corebox_tool)
+    tool, tool_identity = _require_corebox_tool(corebox_tool)
     fixture = session.run_zero_write_preview(input_dir=input_dir)
     return NamedSessionPlan(
         input_dir=Path(input_dir),
@@ -97,6 +138,7 @@ def build_named_session_plan(
         runtime_parent=Path(runtime_parent),
         evidence_dir=Path(evidence_dir),
         corebox_tool=tool,
+        corebox_tool_identity=tool_identity,
         solo_revision=solo_revision,
         corebox_revision=corebox_revision,
         fixture=fixture["fixture"],
@@ -138,10 +180,53 @@ def preview(plan: NamedSessionPlan) -> dict[str, Any]:
     }
 
 
-def _corebox_command(plan: NamedSessionPlan, *, runtime: Path, socket_path: Path) -> list[str]:
+def _snapshot_corebox_tool(plan: NamedSessionPlan, *, runtime: Path) -> Path:
+    """Copy the exact reviewed executable bytes into the private runtime."""
+    source, details = _open_corebox_tool(plan.corebox_tool)
+    destination = runtime / "corebox-c3-client"
+    destination_fd = -1
+    try:
+        current = CoreboxToolIdentity(
+            device=details.st_dev,
+            inode=details.st_ino,
+            size=details.st_size,
+            modified_ns=details.st_mtime_ns,
+            sha256=_hash_descriptor(source),
+        )
+        if current != plan.corebox_tool_identity:
+            raise C3CommandOrchestrationError("Corebox C3 tool changed after planning")
+        destination_fd = os.open(
+            destination,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+            0o700,
+        )
+        digest = hashlib.sha256()
+        while chunk := os.read(source, 1024 * 1024):
+            digest.update(chunk)
+            view = memoryview(chunk)
+            while view:
+                written = os.write(destination_fd, view)
+                view = view[written:]
+        os.fsync(destination_fd)
+        if digest.hexdigest() != plan.corebox_tool_identity.sha256:
+            raise C3CommandOrchestrationError("Corebox C3 tool snapshot digest differs")
+    except Exception:
+        try:
+            os.unlink(destination)
+        except FileNotFoundError:
+            pass
+        raise
+    finally:
+        os.close(source)
+        if destination_fd >= 0:
+            os.close(destination_fd)
+    return destination
+
+
+def _corebox_command(plan: NamedSessionPlan, *, executable: Path, runtime: Path, socket_path: Path) -> list[str]:
     """Build the private child command only after the server bound its socket."""
     return [
-        str(plan.corebox_tool),
+        str(executable),
         "--execute-c3-named-session",
         "--fixture", str(plan.input_dir),
         "--runtime-dir", str(runtime),
@@ -152,23 +237,87 @@ def _corebox_command(plan: NamedSessionPlan, *, runtime: Path, socket_path: Path
     ]
 
 
+def _stop_child(child: subprocess.Popen[bytes]) -> None:
+    if child.poll() is not None:
+        return
+    child.terminate()
+    try:
+        child.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        child.kill()
+        try:
+            child.wait(timeout=5)
+        except subprocess.TimeoutExpired as exc:
+            raise C3CommandOrchestrationError("Corebox child could not be terminated") from exc
+
+
+def _wait_for_child(child: subprocess.Popen[bytes]) -> None:
+    try:
+        child.wait(timeout=45)
+    except subprocess.TimeoutExpired as exc:
+        _stop_child(child)
+        raise C3CommandOrchestrationError("Corebox child exceeded the C3 timeout") from exc
+
+
+def _read_bounded_output(handle: Any, *, field: str) -> bytes:
+    handle.seek(0)
+    value = handle.read(MAX_CHILD_OUTPUT_BYTES + 1)
+    if len(value) > MAX_CHILD_OUTPUT_BYTES:
+        raise C3CommandOrchestrationError(f"Corebox child {field} exceeded the output limit")
+    return value
+
+
+def _validate_corebox_result(stdout: bytes, result: dict[str, Any]) -> dict[str, str]:
+    if not stdout.endswith(b"\n") or stdout.endswith(b"\n\n"):
+        raise C3CommandOrchestrationError("Corebox child result must be one canonical JSON line")
+    body = stdout[:-1]
+    try:
+        client_result = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise C3CommandOrchestrationError("Corebox child did not return canonical session JSON") from exc
+    required = {
+        "proof_id", "semantic_request_id", "connection_binding_hash", "receipt_id",
+        "accepted_status", "duplicate_status",
+    }
+    if not isinstance(client_result, dict) or set(client_result) != required:
+        raise C3CommandOrchestrationError("Corebox child result schema is incomplete")
+    if primitives.canonical_json_bytes(client_result) != body:
+        raise C3CommandOrchestrationError("Corebox child result JSON is not canonical")
+    expected = {
+        "proof_id": result["proof_id"],
+        "semantic_request_id": result["semantic_request_id"],
+        "connection_binding_hash": result["connection_binding_hash"],
+        "receipt_id": result["receipt_id"],
+        "accepted_status": result["accepted_status"],
+        "duplicate_status": result["duplicate_status"],
+    }
+    if client_result != expected:
+        raise C3CommandOrchestrationError("Corebox and Solo C3 result bindings differ")
+    return client_result
+
+
 def execute_named_session(plan: NamedSessionPlan, *, execution_authorized: bool) -> dict[str, Any]:
     """Run the future bounded server/client pair; hard-disabled in this revision."""
     if execution_authorized is not True or not ORCHESTRATION_EXECUTION_ENABLED:
         raise C3CommandOrchestrationNotAuthorized(
             "C3 command orchestration is disabled pending separate owner authorization and review"
         )
-    child: subprocess.Popen[str] | None = None
+    child: subprocess.Popen[bytes] | None = None
+    stdout_file = tempfile.TemporaryFile(mode="w+b")
+    stderr_file = tempfile.TemporaryFile(mode="w+b")
 
     def start_corebox(runtime: Path, socket_path: Path) -> None:
         nonlocal child
-        child = subprocess.Popen(
-            _corebox_command(plan, runtime=runtime, socket_path=socket_path),
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
+        snapshot = _snapshot_corebox_tool(plan, runtime=runtime)
+        try:
+            child = subprocess.Popen(
+                _corebox_command(plan, executable=snapshot, runtime=runtime, socket_path=socket_path),
+                stdin=subprocess.DEVNULL,
+                stdout=stdout_file,
+                stderr=stderr_file,
+            )
+        finally:
+            os.unlink(snapshot)
 
     try:
         result = session.execute_one_shot_session(
@@ -185,21 +334,23 @@ def execute_named_session(plan: NamedSessionPlan, *, execution_authorized: bool)
         )
         if child is None:
             raise C3CommandOrchestrationError("Corebox child was not started")
-        stdout, stderr = child.communicate(timeout=45)
+        _wait_for_child(child)
         if child.returncode != 0:
             raise C3CommandOrchestrationError("Corebox child refused the named C3 session")
-        try:
-            client_result = json.loads(stdout)
-        except ValueError as exc:
-            raise C3CommandOrchestrationError("Corebox child did not return canonical session JSON") from exc
-        if not isinstance(client_result, dict) or client_result.get("receipt_id") != result["receipt_id"]:
-            raise C3CommandOrchestrationError("Corebox and Solo C3 receipt bindings differ")
+        stdout = _read_bounded_output(stdout_file, field="stdout")
+        stderr = _read_bounded_output(stderr_file, field="stderr")
+        if stderr:
+            raise C3CommandOrchestrationError("Corebox child emitted unexpected stderr")
+        _validate_corebox_result(stdout, result)
         session.retain_session_evidence(result=result, evidence_dir=plan.evidence_dir)
         return result
     finally:
-        if child is not None and child.poll() is None:
-            child.terminate()
-            child.wait(timeout=5)
+        try:
+            if child is not None:
+                _stop_child(child)
+        finally:
+            stdout_file.close()
+            stderr_file.close()
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

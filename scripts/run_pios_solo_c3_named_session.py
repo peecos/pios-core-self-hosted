@@ -346,6 +346,8 @@ def execute_one_shot_session(
                 "semantic_request_id": request["semantic_request_id"],
                 "connection_binding_hash": request["connection_binding_hash"],
                 "receipt_id": accepted["receipt_id"],
+                "accepted_status": "accepted",
+                "duplicate_status": "duplicate",
                 "export_cursor": exported["cursor"],
                 "ephemeral_lifecycle_roots_created": 1,
                 "ephemeral_lifecycle_roots_removed": 1,
@@ -377,8 +379,38 @@ def retain_session_evidence(*, result: Mapping[str, Any], evidence_dir: Path) ->
     if not isinstance(result, Mapping) or result.get("status") != "passed" or result.get("cleanup") != "passed":
         raise C3NamedSessionProtocolError("C3 evidence requires a passed, cleaned session result")
     evidence = _require_fresh_evidence_destination(evidence_dir)
-    evidence.mkdir()
-    (evidence / "c3-session-result.json").write_bytes(primitives.canonical_json_bytes(result))
+    os.mkdir(evidence, 0o700)
+    directory_fd = os.open(evidence, os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0))
+    file_fd = -1
+    try:
+        path_details = os.lstat(evidence)
+        directory_details = os.fstat(directory_fd)
+        if (
+            not stat.S_ISDIR(directory_details.st_mode)
+            or directory_details.st_uid != os.geteuid()
+            or stat.S_IMODE(directory_details.st_mode) != 0o700
+            or (path_details.st_dev, path_details.st_ino) != (directory_details.st_dev, directory_details.st_ino)
+        ):
+            raise C3NamedSessionProtocolError("C3 evidence directory identity or mode is unsafe")
+        file_fd = os.open(
+            "c3-session-result.json",
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+            dir_fd=directory_fd,
+        )
+        data = primitives.canonical_json_bytes(result)
+        view = memoryview(data)
+        while view:
+            written = os.write(file_fd, view)
+            view = view[written:]
+        os.fsync(file_fd)
+        details = os.fstat(file_fd)
+        if not stat.S_ISREG(details.st_mode) or details.st_uid != os.geteuid() or stat.S_IMODE(details.st_mode) != 0o600:
+            raise C3NamedSessionProtocolError("C3 evidence file owner, type, or mode is unsafe")
+    finally:
+        if file_fd >= 0:
+            os.close(file_fd)
+        os.close(directory_fd)
 
 
 def install_no_session_audit_guard() -> None:

@@ -2,6 +2,7 @@ import ast
 import contextlib
 import io
 import os
+import stat
 import tempfile
 import unittest
 from pathlib import Path
@@ -239,6 +240,32 @@ class C3NamedSessionPreviewTests(unittest.TestCase):
                     c3_session.main(["--input-dir", str(fixture), "--confirm-c3-local-transport-proof"]),
                     2,
                 )
+
+    def test_retained_evidence_uses_private_directory_and_exclusive_regular_file(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / "evidence"
+            result = {"status": "passed", "cleanup": "passed", "receipt_id": "rcpt_" + "a" * 64}
+            c3_session.retain_session_evidence(result=result, evidence_dir=destination)
+            evidence_file = destination / "c3-session-result.json"
+            self.assertTrue(evidence_file.is_file())
+            self.assertEqual(stat.S_IMODE(os.lstat(destination).st_mode), 0o700)
+            self.assertEqual(stat.S_IMODE(os.lstat(evidence_file).st_mode), 0o600)
+            self.assertEqual(evidence_file.read_bytes(), c3_session.primitives.canonical_json_bytes(result))
+
+    def test_retained_evidence_refuses_existing_or_symlink_destination(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            existing = root / "existing"
+            existing.mkdir()
+            result = {"status": "passed", "cleanup": "passed"}
+            with self.assertRaises(c3_session.C3NamedSessionProtocolError):
+                c3_session.retain_session_evidence(result=result, evidence_dir=existing)
+            target = root / "target"
+            target.mkdir()
+            link = root / "link"
+            link.symlink_to(target, target_is_directory=True)
+            with self.assertRaises(c3_session.C3NamedSessionProtocolError):
+                c3_session.retain_session_evidence(result=result, evidence_dir=link)
                 self.assertEqual(
                     c3_session.main([
                         "--input-dir", str(fixture),
