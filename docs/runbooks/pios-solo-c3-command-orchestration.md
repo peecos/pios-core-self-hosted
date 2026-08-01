@@ -23,7 +23,7 @@ Every future invocation supplies all of these explicit values:
 - existing absolute non-symlink runtime parent;
 - fresh evidence directory that does not already exist;
 - executable regular non-symlink Corebox developer-tool path;
-- Solo server revision `2ccfa0c`; and
+- Solo session revision `ef40daf`; and
 - Corebox client revision `1566817`.
 
 The orchestrator validates these inputs and reuses the C3 zero-write fixture
@@ -58,7 +58,10 @@ submission, lifecycle work, or evidence writing.
 
 Changing this gate is not an operational instruction. It requires a separate
 reviewed source change, a named owner decision, and a new focused review of the
-exact revisions and proof inputs.
+exact revisions and proof inputs. That decision must name both session
+revisions above and the exact command-orchestration and Corebox command-
+interface commits being exercised; those latter two revisions are deliberately
+not self-declared by the code.
 
 ## Validation
 

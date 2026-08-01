@@ -25,8 +25,8 @@ from scripts import pios_canonical_source_primitives as primitives
 from scripts import run_pios_solo_c3_named_session as session
 
 ORCHESTRATOR_SCHEMA = "pios_solo_c3_command_orchestration_plan_v1"
-SOLO_SERVER_REVISION = "2ccfa0c"
-COREBOX_CLIENT_REVISION = "1566817"
+SOLO_SERVER_REVISION = session.SOLO_EXECUTION_REVISION
+COREBOX_CLIENT_REVISION = session.COREBOX_EXECUTION_REVISION
 ORCHESTRATION_EXECUTION_ENABLED = False
 
 
@@ -113,6 +113,8 @@ def preview(plan: NamedSessionPlan) -> dict[str, Any]:
         "revisions": {
             "solo_server_revision": plan.solo_revision,
             "corebox_client_revision": plan.corebox_revision,
+            "command_orchestration_revision": "must_be_named_in_a_future_execution_decision",
+            "corebox_command_interface_revision": "must_be_named_in_a_future_execution_decision",
         },
         "fixture": plan.fixture,
         "planned_processes": ["one_solo_server", "one_corebox_developer_tool"],

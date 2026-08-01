@@ -28,7 +28,7 @@ class C3CommandOrchestrationTests(unittest.TestCase):
             runtime_parent=Path("/private/tmp"),
             evidence_dir=root / "evidence",
             corebox_tool=tool or self.make_tool(root),
-            solo_revision="2ccfa0c",
+            solo_revision="ef40daf",
             corebox_revision="1566817",
         )
 
@@ -40,8 +40,10 @@ class C3CommandOrchestrationTests(unittest.TestCase):
             output = orchestration.preview(plan)
             self.assertEqual(output["status"], "prepared_not_authorized")
             self.assertEqual(output["revisions"], {
-                "solo_server_revision": "2ccfa0c",
+                "solo_server_revision": "ef40daf",
                 "corebox_client_revision": "1566817",
+                "command_orchestration_revision": "must_be_named_in_a_future_execution_decision",
+                "corebox_command_interface_revision": "must_be_named_in_a_future_execution_decision",
             })
             self.assertFalse(output["child_process_started"])
             self.assertEqual(output["network_or_cloud_calls"], 0)
@@ -84,7 +86,7 @@ class C3CommandOrchestrationTests(unittest.TestCase):
                 "--input-dir", str(root / "fixture"), "--proof-id", "c3-corebox-local-20260801-r2",
                 "--receipt-recorded-at", "2026-08-01T00:00:04Z", "--runtime-parent", "/private/tmp",
                 "--evidence-dir", str(root / "evidence"), "--corebox-tool", str(tool),
-                "--solo-revision", "2ccfa0c", "--corebox-revision", "1566817",
+                "--solo-revision", "ef40daf", "--corebox-revision", "1566817",
                 "--confirm-c3-local-transport-orchestration",
             ]
             with (
