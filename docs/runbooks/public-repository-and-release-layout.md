@@ -173,7 +173,11 @@ scripts/validate_public_split_hygiene.py --public-root <curated-public-root>
 
 ## Current Status
 
-Local proofs exist for:
+The public `peecos/pios-core-self-hosted` repository and signed
+`v0.1.0-rc1` prerelease exist. The prerelease is evidence of the release path,
+not the stable public availability claim.
+
+Local and prerelease evidence exists for:
 
 - QEMU boot;
 - repeat QEMU boot;
@@ -185,15 +189,21 @@ Local proofs exist for:
 
 Still open:
 
-- public repository split execution;
-- public peecos.org page;
-- owner-facing local-machine VM setup validation;
-- Google Cloud repeatability and non-Google provider proof records;
-- final public release publication process.
+- a fresh stable artifact built from the frozen `v0.1.0` source revision;
+- owner-facing independent clean-machine verification of that exact artifact;
+- stable-release signing, GitHub publication, and peecos.org availability copy;
+- release-proof recording for the stable artifact; and
+- any provider claims beyond the explicit readiness matrix.
 
-Current release-candidate proof evidence is retained in private operator
-records. Public releases carry the release notes, manifest, checksums,
-signature, public key, and verification instructions.
+The `v0.1.0` stable-release gate is documented in:
+
+```text
+docs/releases/v0.1.0/RELEASE-READINESS.md
+```
+
+Public releases carry the release notes, manifest, checksums, signature, public
+key, and verification instructions. Private operator records remain out of the
+public release tree.
 
 Current public split preview:
 

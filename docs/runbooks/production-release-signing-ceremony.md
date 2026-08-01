@@ -1,6 +1,7 @@
 # Production Release Signing Ceremony
 
-Status: draft procedure; production key setup passed; no release published
+Status: draft procedure; production key setup passed; `v0.1.0-rc1` prerelease
+published; required again for the planned stable `v0.1.0` artifact
 
 This runbook defines the human-controlled signing step for public PIOS/Core
 release artifacts.
@@ -146,6 +147,8 @@ known_boundaries:
 ## Current Boundary
 
 The production release key exists and the synthetic setup ceremony passed. The
-local proof key under `image-artifacts/` remains a development key and must not
-be published as the production peecos release key. No public release has been
-published yet; this ceremony is still required for each release artifact set.
+signed `v0.1.0-rc1` prerelease demonstrates the public release path but does
+not sign or publish the next artifact automatically. The local proof key under
+`image-artifacts/` remains a development key and must not be published as the
+production peecos release key. This ceremony is required for every new release
+artifact set, including the planned stable `v0.1.0` release.
