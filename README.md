@@ -38,6 +38,9 @@ endorsement claims are handled separately only to prevent confusion.
 See [OPENNESS.md](OPENNESS.md) for the plain-language guide and
 [LICENSE](LICENSE) for the formal terms.
 
+Want to help? See [peecos.org/get-involved](https://www.peecos.org/get-involved)
+and [CONTRIBUTING.md](https://github.com/peecos/.github/blob/main/CONTRIBUTING.md).
+
 ## License and Attribution
 
 Code, schemas, scripts, release tooling, and install documentation in this

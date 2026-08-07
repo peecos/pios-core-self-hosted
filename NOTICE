@@ -2,11 +2,11 @@ PIOS Core Self-Hosted
 Copyright (c) 2026 Valto Loikkanen / peecos.
 
 This repository contains the public PIOS Core Self-Hosted VM path and release
-tooling.
+tooling — open for anyone to use, adapt, and run themselves.
 
 Software license: Apache License 2.0, unless a file states otherwise.
 
-Recommended attribution:
+If you build on it, a simple credit is appreciated:
 
   PIOS Core Self-Hosted by Valto Loikkanen / peecos
 
